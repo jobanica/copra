@@ -106,6 +106,7 @@ export default async function DashboardPage({
     { data: expected },
     { data: purchases },
     { data: farmers },
+    { data: expenseRows },
   ] = await Promise.all([
     supabase.from("v_dashboard_today").select("*").maybeSingle(),
     supabase
@@ -129,6 +130,12 @@ export default async function DashboardPage({
       .order("purchased_at", { ascending: false })
       .limit(3000),
     supabase.from("farmers").select("id,name"),
+    supabase
+      .from("expenses")
+      .select("amount_centavos")
+      .eq("status", "posted")
+      .gte("expense_date", from)
+      .lte("expense_date", to),
   ]);
 
   const d = (dash ?? null) as DashboardTodayView | null;
@@ -144,6 +151,10 @@ export default async function DashboardPage({
       (c) => c.type === "cash_on_hand",
     )?.balance_centavos ?? 0;
   const expectedDrawer = (expected as number | null) ?? cashOnHand;
+  const totalExpenses = ((expenseRows ?? []) as { amount_centavos: number }[]).reduce(
+    (sum, e) => sum + Number(e.amount_centavos),
+    0,
+  );
 
   // Range totals.
   let rangeNetKg = 0;
@@ -210,14 +221,15 @@ export default async function DashboardPage({
       )}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Kpi tone="green" label="Kg bought" value={formatKg(rangeNetKg)} hint={`${rows.length} purchases · ${rangeLabel}`} />
         <Kpi tone="amber" label="Cash paid out" value={formatPeso(rangeCashOut)} hint={rangeLabel} />
+        <Kpi tone="rose" label="Total expenses" value={formatPeso(totalExpenses)} hint={rangeLabel} />
         {isOwner ? (
           <>
             <Kpi tone="blue" label="Stock on hand" value={formatKg(d?.stock_on_hand_kg ?? 0)} hint={`Cost ${formatPeso(d?.stock_value_centavos ?? 0)}`} />
             <Kpi tone="violet" label="Gross profit (month)" value={formatPeso(d?.month_gross_profit_centavos ?? 0)} hint={marginPerKg !== null ? `Margin ${formatPeso(marginPerKg)}/kg` : undefined} />
-            <Kpi tone="rose" label="Total utang out" value={formatPeso(d?.total_utang_outstanding_centavos ?? 0)} />
+            <Kpi tone="amber" label="Total utang out" value={formatPeso(d?.total_utang_outstanding_centavos ?? 0)} />
           </>
         ) : (
           <>
