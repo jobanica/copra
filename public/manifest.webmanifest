@@ -1,0 +1,19 @@
+{
+  "name": "CopraBooks",
+  "short_name": "CopraBooks",
+  "description": "Copra buying & accounting for a single buying station.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f0fdf4",
+  "theme_color": "#15803d",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
