@@ -3,16 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Field, Input, Textarea, FormError } from "@/components/ui";
+import { Field, Input, FormError } from "@/components/ui";
 import { SignaturePad } from "@/components/SignaturePad";
 import { formatPeso, pesosToCentavos } from "@/lib/money";
-import { rasterFromDataUrl } from "@/lib/escpos/raster";
-import {
-  encodeAdvanceReceipt,
-  advanceReceiptText,
-  type AdvanceReceiptData,
-} from "@/lib/escpos/advanceReceipt";
-import { isWebBluetoothAvailable, printViaBluetooth } from "@/lib/escpos/print";
+import { type AdvanceReceiptData } from "@/lib/escpos/advanceReceipt";
+import { printAdvanceReceipt } from "@/lib/escpos/advancePrint";
 
 export interface AdvanceFormProps {
   farmerId: string;
@@ -21,27 +16,6 @@ export interface AdvanceFormProps {
   balanceCentavos: number;
   business: { name: string; address?: string; footer?: string };
   cashierName: string | null;
-}
-
-async function browserPrint(d: AdvanceReceiptData, sig: string) {
-  const w = window.open("", "_blank", "width=340,height=680");
-  if (!w) return;
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-  const txt = esc(
-    advanceReceiptText(d)
-      .split("Received the above cash advance:")[0] + "Received the above cash advance:",
-  );
-  w.document.write(
-    `<div style="font-family:'Courier New',monospace;font-size:12px;width:58mm">` +
-      `<pre style="white-space:pre-wrap;margin:0">${txt}</pre>` +
-      `<img src="${sig}" style="width:90%;display:block;margin:4px auto"/>` +
-      `<pre style="white-space:pre-wrap;margin:0">________________________\n${esc(d.farmerName)}</pre>` +
-      (d.footer ? `<p style="text-align:center">${esc(d.footer)}</p>` : "") +
-      `</div>`,
-  );
-  w.document.close();
-  w.focus();
-  w.print();
 }
 
 export function AdvanceForm({
@@ -65,16 +39,7 @@ export function AdvanceForm({
   const canSubmit = amt > 0 && !!signature && !busy;
 
   async function printReceipt(d: AdvanceReceiptData, sig: string) {
-    try {
-      if (isWebBluetoothAvailable()) {
-        const raster = await rasterFromDataUrl(sig);
-        await printViaBluetooth(encodeAdvanceReceipt(d, raster));
-      } else {
-        await browserPrint(d, sig);
-      }
-    } catch {
-      await browserPrint(d, sig);
-    }
+    await printAdvanceReceipt(d, sig);
   }
 
   async function submit() {

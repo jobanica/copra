@@ -182,35 +182,51 @@ export default async function FarmerDetailPage({
           <EmptyState>No advances or repayments yet.</EmptyState>
         ) : (
           <div className="divide-y divide-gray-100">
-            {ledgerRows.map((l) => (
-              <div key={l.id} className="flex items-center justify-between py-2 text-sm">
-                <div>
-                  <div className="font-medium capitalize">
-                    {l.direction === "advance" ? "Advance" : "Repayment"}
-                    {l.status !== "posted" && (
-                      <span className="ml-2">
-                        <Badge tone={l.status === "pending" ? "amber" : "red"}>
-                          {l.status}
-                        </Badge>
-                      </span>
-                    )}
+            {ledgerRows.map((l) => {
+              const inner = (
+                <>
+                  <div>
+                    <div className="font-medium capitalize">
+                      {l.direction === "advance" ? "Advance" : "Repayment"}
+                      {l.status !== "posted" && (
+                        <span className="ml-2">
+                          <Badge tone={l.status === "pending" ? "amber" : "red"}>
+                            {l.status}
+                          </Badge>
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {formatDate(l.entry_date)} · {l.source_type.replace(/_/g, " ")}
+                      {l.direction === "advance" && " · 🧾 receipt"}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-400">
-                    {formatDate(l.entry_date)} · {l.source_type.replace(/_/g, " ")}
+                  <div
+                    className={
+                      l.direction === "advance"
+                        ? "font-semibold text-red-600"
+                        : "font-semibold text-brand-700"
+                    }
+                  >
+                    {l.direction === "advance" ? "+" : "−"}
+                    {formatPeso(l.amount_centavos, false)}
                   </div>
-                </div>
-                <div
-                  className={
-                    l.direction === "advance"
-                      ? "font-semibold text-red-600"
-                      : "font-semibold text-brand-700"
-                  }
+                </>
+              );
+              return l.direction === "advance" ? (
+                <Link
+                  key={l.id}
+                  href={`/utang/${l.id}`}
+                  className="flex items-center justify-between py-2 text-sm active:bg-gray-50"
                 >
-                  {l.direction === "advance" ? "+" : "−"}
-                  {formatPeso(l.amount_centavos, false)}
+                  {inner}
+                </Link>
+              ) : (
+                <div key={l.id} className="flex items-center justify-between py-2 text-sm">
+                  {inner}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
