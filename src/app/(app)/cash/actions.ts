@@ -11,6 +11,18 @@ function peso(v: FormDataEntryValue | null): number {
   return pesosToCentavos(Number(v) || 0);
 }
 
+export async function deleteExpense(formData: FormData): Promise<void> {
+  const session = await getSessionProfile();
+  if (!session || !isOwner(session.profile)) return;
+  const id = String(formData.get("expense_id") || "");
+  if (!id) return;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_expense", { p_expense_id: id });
+  if (error) return;
+  revalidatePath("/cash");
+  revalidatePath("/", "layout");
+}
+
 export async function recordExpense(
   _state: ActionState,
   formData: FormData,

@@ -6,7 +6,9 @@ import { PageHeader, Card, Field, Input, Badge, EmptyState } from "@/components/
 import { ActionForm } from "@/components/ActionForm";
 import { SubmitButton } from "@/components/SubmitButton";
 import { AdvanceForm } from "@/components/AdvanceForm";
-import { recordRepayment } from "../../utang/actions";
+import { DeleteButton } from "@/components/DeleteButton";
+import { recordRepayment, deleteUtangEntry } from "../../utang/actions";
+import { deleteFarmer } from "../actions";
 import { formatPeso } from "@/lib/money";
 import { formatKg } from "@/lib/weight";
 import { formatDate } from "@/lib/format";
@@ -85,6 +87,7 @@ export default async function FarmerDetailPage({
     footer: (header["footer"] as string) || undefined,
   };
   const cashierName = session?.profile.full_name ?? session?.email ?? null;
+  const owner = session?.profile.role === "owner";
 
   return (
     <div className="space-y-4">
@@ -213,17 +216,31 @@ export default async function FarmerDetailPage({
                   </div>
                 </>
               );
-              return l.direction === "advance" ? (
-                <Link
-                  key={l.id}
-                  href={`/utang/${l.id}`}
-                  className="flex items-center justify-between py-2 text-sm active:bg-gray-50"
-                >
-                  {inner}
-                </Link>
-              ) : (
-                <div key={l.id} className="flex items-center justify-between py-2 text-sm">
-                  {inner}
+              return (
+                <div key={l.id} className="flex items-center gap-2">
+                  {l.direction === "advance" ? (
+                    <Link
+                      href={`/utang/${l.id}`}
+                      className="flex flex-1 items-center justify-between py-2 text-sm active:bg-gray-50"
+                    >
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div className="flex flex-1 items-center justify-between py-2 text-sm">
+                      {inner}
+                    </div>
+                  )}
+                  {owner && (
+                    <DeleteButton
+                      action={deleteUtangEntry}
+                      id={l.id}
+                      idField="ledger_id"
+                      confirmText="Permanently delete this utang entry? This cannot be undone."
+                      className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                    >
+                      ✕
+                    </DeleteButton>
+                  )}
                 </div>
               );
             })}
@@ -260,6 +277,25 @@ export default async function FarmerDetailPage({
           </div>
         )}
       </Card>
+
+      {owner && (
+        <Card className="border-red-200">
+          <h2 className="mb-2 font-semibold text-red-700">Delete farmer</h2>
+          <p className="mb-3 text-sm text-gray-500">
+            Permanently removes {farmer.name} <strong>and all of their purchases
+            and utang entries</strong> (with the related receipts and journal
+            entries). Use this only to clear test data — it cannot be undone.
+          </p>
+          <DeleteButton
+            action={deleteFarmer}
+            id={id}
+            idField="farmer_id"
+            confirmText={`Permanently delete ${farmer.name} and ALL of their purchases and utang? This cannot be undone.`}
+          >
+            Delete this farmer
+          </DeleteButton>
+        </Card>
+      )}
     </div>
   );
 }

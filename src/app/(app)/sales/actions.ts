@@ -13,6 +13,19 @@ function num(v: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+export async function deleteSale(formData: FormData): Promise<void> {
+  const session = await getSessionProfile();
+  if (!session || !isOwner(session.profile)) return;
+  const id = String(formData.get("sale_id") || "");
+  if (!id) return;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_sale", { p_sale_id: id });
+  if (error) return;
+  revalidatePath("/sales");
+  revalidatePath("/", "layout");
+  redirect("/sales");
+}
+
 export async function postSale(
   _state: ActionState,
   formData: FormData,

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Card, Field, Input, Select, Textarea, FormError } from "@/components/ui";
+import { FarmerPicker } from "@/components/FarmerPicker";
 import { formatPeso, formatPeso as peso } from "@/lib/money";
 import { formatKg } from "@/lib/weight";
 import { netKg, deductionKgFromPct, grossAmountCentavos } from "@/lib/weight";
@@ -261,14 +262,7 @@ export function PurchaseForm({
     <div className="space-y-4">
       <Card className="space-y-3">
         <Field label="Farmer">
-          <Select value={farmerId} onChange={(e) => setFarmerId(e.target.value)}>
-            {farmers.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-                {f.barangay ? ` — ${f.barangay}` : ""}
-              </option>
-            ))}
-          </Select>
+          <FarmerPicker farmers={farmers} value={farmerId} onChange={setFarmerId} />
         </Field>
         {balance > 0 && (
           <div className="text-sm text-amber-700">

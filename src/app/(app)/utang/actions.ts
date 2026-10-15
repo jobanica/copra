@@ -2,9 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getSessionProfile } from "@/lib/auth";
+import { getSessionProfile, isOwner } from "@/lib/auth";
 import { pesosToCentavos } from "@/lib/money";
 import type { ActionState } from "@/components/ActionForm";
+
+export async function deleteUtangEntry(formData: FormData): Promise<void> {
+  const session = await getSessionProfile();
+  if (!session || !isOwner(session.profile)) return;
+  const id = String(formData.get("ledger_id") || "");
+  const farmerId = String(formData.get("farmer_id") || "");
+  if (!id) return;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_utang_entry", { p_ledger_id: id });
+  if (error) return;
+  if (farmerId) revalidatePath(`/farmers/${farmerId}`);
+  revalidatePath("/utang");
+  revalidatePath("/", "layout");
+}
 
 export async function createAdvance(
   _state: ActionState,

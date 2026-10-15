@@ -43,6 +43,20 @@ export async function createFarmer(
   redirect(`/farmers/${data.id}`);
 }
 
+export async function deleteFarmer(formData: FormData): Promise<void> {
+  const session = await getSessionProfile();
+  if (!session) return;
+  if (session.profile.role !== "owner") return;
+  const id = String(formData.get("farmer_id") || "");
+  if (!id) return;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_farmer", { p_farmer_id: id });
+  if (error) return;
+  revalidatePath("/farmers");
+  revalidatePath("/", "layout");
+  redirect("/farmers");
+}
+
 export async function updateFarmer(
   _state: ActionState,
   formData: FormData,

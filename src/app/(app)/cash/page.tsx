@@ -4,7 +4,8 @@ import { getSessionProfile, isOwner } from "@/lib/auth";
 import { PageHeader, Card, StatCard, Field, Input, Select, Badge, EmptyState, LinkButton } from "@/components/ui";
 import { ActionForm } from "@/components/ActionForm";
 import { SubmitButton } from "@/components/SubmitButton";
-import { openDay, recordCount, closeDay, recordEquity } from "./actions";
+import { DeleteButton } from "@/components/DeleteButton";
+import { openDay, recordCount, closeDay, recordEquity, deleteExpense } from "./actions";
 import { formatPeso } from "@/lib/money";
 import { formatDate, manilaToday } from "@/lib/format";
 import type {
@@ -255,8 +256,21 @@ export default async function CashPage() {
                     {e.remarks ? ` · ${e.remarks}` : ""}
                   </div>
                 </div>
-                <div className={e.status === "voided" ? "text-gray-400 line-through" : "font-medium"}>
-                  {formatPeso(e.amount_centavos)}
+                <div className="flex items-center gap-3">
+                  <span className={e.status === "voided" ? "text-gray-400 line-through" : "font-medium"}>
+                    {formatPeso(e.amount_centavos)}
+                  </span>
+                  {owner && (
+                    <DeleteButton
+                      action={deleteExpense}
+                      id={e.id}
+                      idField="expense_id"
+                      confirmText="Permanently delete this expense? This cannot be undone."
+                      className="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                    >
+                      Delete
+                    </DeleteButton>
+                  )}
                 </div>
               </div>
             ))}

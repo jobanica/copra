@@ -4,7 +4,8 @@ import { getSessionProfile, isOwner } from "@/lib/auth";
 import { PageHeader, Card, Field, Input, Badge } from "@/components/ui";
 import { ActionForm } from "@/components/ActionForm";
 import { SubmitButton } from "@/components/SubmitButton";
-import { voidSale } from "../actions";
+import { DeleteButton } from "@/components/DeleteButton";
+import { voidSale, deleteSale } from "../actions";
 import { formatPeso } from "@/lib/money";
 import { formatKg } from "@/lib/weight";
 import { formatDate } from "@/lib/format";
@@ -126,6 +127,23 @@ export default async function SaleDetailPage({
           </ActionForm>
         </Card>
       )}
+
+      <Card className="border-red-200">
+        <h2 className="mb-2 font-semibold text-red-700">Delete permanently</h2>
+        <p className="mb-3 text-sm text-gray-500">
+          Removes this sale and its journal and inventory entries. Use this only
+          to clear test data — it cannot be undone. To reverse a real sale, use
+          Void.
+        </p>
+        <DeleteButton
+          action={deleteSale}
+          id={s.id}
+          idField="sale_id"
+          confirmText={`Permanently delete sale #${s.sale_no}? This cannot be undone.`}
+        >
+          Delete permanently
+        </DeleteButton>
+      </Card>
     </div>
   );
 }
