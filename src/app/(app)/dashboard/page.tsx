@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/auth";
 import { Card } from "@/components/ui";
 import { LineChart, type ChartPoint } from "@/components/LineChart";
+import { DashboardFilter } from "@/components/DashboardFilter";
 import { formatPeso } from "@/lib/money";
 import { formatKg } from "@/lib/weight";
 import { formatDate, manilaToday } from "@/lib/format";
@@ -22,6 +23,17 @@ const mdate = (iso: string) =>
     month: "2-digit",
     day: "2-digit",
   }).format(new Date(iso));
+
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+const minusDays = (ymd: string, days: number) => {
+  const d = new Date(ymd + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+};
+const daysBetween = (from: string, to: string) =>
+  Math.round(
+    (Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / 86_400_000,
+  );
 
 type Tone = "green" | "amber" | "blue" | "violet" | "rose";
 const TONES: Record<Tone, string> = {
@@ -52,25 +64,39 @@ function Kpi({
   );
 }
 
-interface RecentPurchase {
+interface RangePurchase {
   id: string;
   receipt_no: number;
   purchased_at: string;
   net_kg: number;
   gross_amount_centavos: number;
+  cash_paid_centavos: number;
   farmer_id: string;
   status: string;
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>;
+}) {
   const session = await getSessionProfile();
   const isOwner = session?.profile.role === "owner";
   const firstName = session?.profile.full_name?.split(" ")[0];
   const supabase = await createClient();
   const today = manilaToday();
 
-  const since = new Date(today + "T00:00:00Z");
-  since.setUTCDate(since.getUTCDate() - 34);
+  // Resolve the selected date range (defaults to the last 14 days).
+  const sp = await searchParams;
+  let from = sp.from && YMD.test(sp.from) ? sp.from : minusDays(today, 13);
+  let to = sp.to && YMD.test(sp.to) ? sp.to : today;
+  if (from > to) [from, to] = [to, from];
+  const singleDay = from === to;
+  const rangeDays = Math.min(366, daysBetween(from, to) + 1);
+
+  // Manila day boundaries expressed as fixed-offset timestamps (UTC+8).
+  const startIso = `${from}T00:00:00+08:00`;
+  const endIso = `${to}T23:59:59.999+08:00`;
 
   const [
     { data: dash },
@@ -94,11 +120,14 @@ export default async function DashboardPage() {
     supabase.rpc("cash_day_expected", { p_business_date: today }),
     supabase
       .from("purchases")
-      .select("id,receipt_no,purchased_at,net_kg,gross_amount_centavos,farmer_id,status")
+      .select(
+        "id,receipt_no,purchased_at,net_kg,gross_amount_centavos,cash_paid_centavos,farmer_id,status",
+      )
       .eq("status", "posted")
-      .gte("purchased_at", since.toISOString())
+      .gte("purchased_at", startIso)
+      .lte("purchased_at", endIso)
       .order("purchased_at", { ascending: false })
-      .limit(400),
+      .limit(3000),
     supabase.from("farmers").select("id,name"),
   ]);
 
@@ -106,7 +135,7 @@ export default async function DashboardPage() {
   const p = (price ?? null) as BuyingPrice | null;
   const bp = (buyerPrice ?? null) as BuyerReferencePrice | null;
   const marginPerKg = p && bp ? bp.price_per_kg_centavos - p.price_per_kg_centavos : null;
-  const rows = (purchases ?? []) as RecentPurchase[];
+  const rows = (purchases ?? []) as RangePurchase[];
   const farmerName = new Map(
     ((farmers ?? []) as { id: string; name: string }[]).map((f) => [f.id, f.name]),
   );
@@ -116,15 +145,24 @@ export default async function DashboardPage() {
     )?.balance_centavos ?? 0;
   const expectedDrawer = (expected as number | null) ?? cashOnHand;
 
-  // 14-day net-kg series
+  // Range totals.
+  let rangeNetKg = 0;
+  let rangeCashOut = 0;
   const byDay = new Map<string, number>();
+  const topMap = new Map<string, number>();
   for (const r of rows) {
+    const kg = Number(r.net_kg);
+    rangeNetKg += kg;
+    rangeCashOut += Number(r.cash_paid_centavos);
     const k = mdate(r.purchased_at);
-    byDay.set(k, (byDay.get(k) ?? 0) + Number(r.net_kg));
+    byDay.set(k, (byDay.get(k) ?? 0) + kg);
+    topMap.set(r.farmer_id, (topMap.get(r.farmer_id) ?? 0) + kg);
   }
+
+  // Daily net-kg series across the selected range.
   const series: ChartPoint[] = [];
-  const base = new Date(today + "T00:00:00Z");
-  for (let i = 13; i >= 0; i--) {
+  const base = new Date(to + "T00:00:00Z");
+  for (let i = rangeDays - 1; i >= 0; i--) {
     const dd = new Date(base);
     dd.setUTCDate(base.getUTCDate() - i);
     const key = dd.toISOString().slice(0, 10);
@@ -136,29 +174,27 @@ export default async function DashboardPage() {
     series.push({ label, value: Math.round((byDay.get(key) ?? 0) * 100) / 100 });
   }
 
-  // Top farmers this month (by net kg)
-  const month = today.slice(0, 7);
-  const topMap = new Map<string, number>();
-  for (const r of rows) {
-    if (mdate(r.purchased_at).slice(0, 7) === month) {
-      topMap.set(r.farmer_id, (topMap.get(r.farmer_id) ?? 0) + Number(r.net_kg));
-    }
-  }
-  const topFarmers = [...topMap.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-
+  const topFarmers = [...topMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   const recent = rows.slice(0, 6);
+
+  const rangeLabel = singleDay
+    ? from === today
+      ? "Today"
+      : formatDate(from + "T00:00:00+08:00")
+    : `${formatDate(from + "T00:00:00+08:00")} – ${formatDate(to + "T00:00:00+08:00")}`;
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Welcome back{firstName ? `, ${firstName}` : ""} 👋
-        </h1>
-        <p className="mt-0.5 text-sm text-gray-500">
-          Here&apos;s what&apos;s happening at the buying station today.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Welcome back{firstName ? `, ${firstName}` : ""} 👋
+          </h1>
+          <p className="mt-0.5 text-sm text-gray-500">
+            Here&apos;s what&apos;s happening at the buying station.
+          </p>
+        </div>
+        <DashboardFilter from={from} to={to} today={today} />
       </div>
 
       {isOwner && !p && (
@@ -175,8 +211,8 @@ export default async function DashboardPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Kpi tone="green" label="Kg bought today" value={formatKg(d?.today_net_kg ?? 0)} hint={`${d?.today_purchase_count ?? 0} purchases`} />
-        <Kpi tone="amber" label="Cash paid out today" value={formatPeso(d?.today_cash_out_centavos ?? 0)} />
+        <Kpi tone="green" label="Kg bought" value={formatKg(rangeNetKg)} hint={`${rows.length} purchases · ${rangeLabel}`} />
+        <Kpi tone="amber" label="Cash paid out" value={formatPeso(rangeCashOut)} hint={rangeLabel} />
         {isOwner ? (
           <>
             <Kpi tone="blue" label="Stock on hand" value={formatKg(d?.stock_on_hand_kg ?? 0)} hint={`Cost ${formatPeso(d?.stock_value_centavos ?? 0)}`} />
@@ -195,7 +231,7 @@ export default async function DashboardPage() {
       {/* Summary chart */}
       <Card>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="font-semibold">Kg bought — last 14 days</h2>
+          <h2 className="font-semibold">Kg bought — {rangeLabel}</h2>
           <Link href="/purchases/new" className="btn-primary px-4 py-2 text-sm">
             ⚖️ Buy
           </Link>
@@ -213,7 +249,7 @@ export default async function DashboardPage() {
             </Link>
           </div>
           {recent.length === 0 ? (
-            <p className="text-sm text-gray-400">No purchases yet.</p>
+            <p className="text-sm text-gray-400">No purchases in this period.</p>
           ) : (
             <div className="divide-y divide-gray-100">
               {recent.map((r) => (
@@ -244,11 +280,11 @@ export default async function DashboardPage() {
           )}
         </Card>
 
-        {/* Top farmers this month */}
+        {/* Top farmers in range */}
         <Card className="lg:col-span-2">
-          <h2 className="mb-3 font-semibold">Top farmers this month</h2>
+          <h2 className="mb-3 font-semibold">Top farmers — {rangeLabel}</h2>
           {topFarmers.length === 0 ? (
-            <p className="text-sm text-gray-400">No activity this month.</p>
+            <p className="text-sm text-gray-400">No activity in this period.</p>
           ) : (
             <div className="space-y-2">
               {topFarmers.map(([fid, kg], i) => (

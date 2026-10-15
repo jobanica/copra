@@ -72,5 +72,6 @@ export async function updateFarmer(
     .eq("id", id);
   if (error) return { error: error.message };
   revalidatePath(`/farmers/${id}`);
-  return { message: "Farmer updated." };
+  revalidatePath("/farmers");
+  redirect(`/farmers/${id}`);
 }

@@ -92,9 +92,14 @@ export default async function FarmerDetailPage({
         title={farmer.name}
         subtitle={[farmer.barangay, farmer.mobile].filter(Boolean).join(" · ") || undefined}
         action={
-          <Link href={`/farmers/${id}/statement`} className="btn-secondary">
-            Statement
-          </Link>
+          <div className="flex gap-2">
+            <Link href={`/farmers/${id}/edit`} className="btn-secondary">
+              Edit
+            </Link>
+            <Link href={`/farmers/${id}/statement`} className="btn-secondary">
+              Statement
+            </Link>
+          </div>
         }
       />
 
