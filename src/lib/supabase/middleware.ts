@@ -36,6 +36,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname === "/manifest.webmanifest" ||
     pathname === "/sw.js" ||
+    pathname === "/offline.html" ||
     pathname.startsWith("/icons");
 
   if (!user && !isAuthRoute && !isPublicAsset) {

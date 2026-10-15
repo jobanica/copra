@@ -3,12 +3,21 @@
 // App data lives in Supabase; unsynced purchases are queued in IndexedDB by
 // the app itself, independent of this worker.
 
-const CACHE = "coprabooks-v1";
+const CACHE = "coprabooks-v2";
 const OFFLINE_URL = "/offline.html";
+const PRECACHE = [
+  OFFLINE_URL,
+  "/manifest.webmanifest",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/apple-touch-icon.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll([OFFLINE_URL])),
+    caches.open(CACHE).then((cache) =>
+      Promise.allSettled(PRECACHE.map((u) => cache.add(u))),
+    ),
   );
   self.skipWaiting();
 });
