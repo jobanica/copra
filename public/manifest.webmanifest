@@ -2,18 +2,34 @@
   "name": "CopraBooks",
   "short_name": "CopraBooks",
   "description": "Copra buying & accounting for a single buying station.",
+  "id": "/dashboard",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f0fdf4",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#0f172a",
   "theme_color": "#15803d",
   "orientation": "portrait",
+  "lang": "en-PH",
+  "categories": ["business", "finance", "productivity"],
   "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
     {
-      "src": "/icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "name": "Record a purchase",
+      "short_name": "Buy",
+      "url": "/purchases/new",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Cash day",
+      "short_name": "Cash",
+      "url": "/cash",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
