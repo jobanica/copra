@@ -1,151 +1,274 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionProfile } from "@/lib/auth";
-import { StatCard, PageHeader, Card } from "@/components/ui";
+import { Card } from "@/components/ui";
+import { LineChart, type ChartPoint } from "@/components/LineChart";
 import { formatPeso } from "@/lib/money";
 import { formatKg } from "@/lib/weight";
-import { manilaToday } from "@/lib/format";
-import type { DashboardTodayView, BuyingPrice, BuyerReferencePrice } from "@/types/db";
+import { formatDate, manilaToday } from "@/lib/format";
+import type {
+  DashboardTodayView,
+  BuyingPrice,
+  BuyerReferencePrice,
+} from "@/types/db";
 
 export const dynamic = "force-dynamic";
+
+const TZ = "Asia/Manila";
+const mdate = (iso: string) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
+
+type Tone = "green" | "amber" | "blue" | "violet" | "rose";
+const TONES: Record<Tone, string> = {
+  green: "bg-brand-50 text-brand-700",
+  amber: "bg-amber-50 text-amber-700",
+  blue: "bg-sky-50 text-sky-700",
+  violet: "bg-violet-50 text-violet-700",
+  rose: "bg-rose-50 text-rose-700",
+};
+
+function Kpi({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone: Tone;
+}) {
+  return (
+    <div className={`rounded-2xl p-4 ${TONES[tone]}`}>
+      <div className="text-xs font-medium opacity-80">{label}</div>
+      <div className="mt-1 text-2xl font-bold tracking-tight">{value}</div>
+      {hint && <div className="mt-0.5 text-xs opacity-70">{hint}</div>}
+    </div>
+  );
+}
+
+interface RecentPurchase {
+  id: string;
+  receipt_no: number;
+  purchased_at: string;
+  net_kg: number;
+  gross_amount_centavos: number;
+  farmer_id: string;
+  status: string;
+}
 
 export default async function DashboardPage() {
   const session = await getSessionProfile();
   const isOwner = session?.profile.role === "owner";
+  const firstName = session?.profile.full_name?.split(" ")[0];
   const supabase = await createClient();
   const today = manilaToday();
 
-  const [{ data: dash }, { data: price }, { data: buyerPrice }, { data: cashBal }, { data: expected }] =
-    await Promise.all([
-      supabase.from("v_dashboard_today").select("*").maybeSingle(),
-      supabase
-        .from("buying_prices")
-        .select("*")
-        .eq("effective_date", today)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("buyer_reference_prices")
-        .select("*")
-        .eq("effective_date", today)
-        .maybeSingle(),
-      supabase.rpc("cash_balances"),
-      supabase.rpc("cash_day_expected", { p_business_date: today }),
-    ]);
+  const since = new Date(today + "T00:00:00Z");
+  since.setUTCDate(since.getUTCDate() - 34);
 
+  const [
+    { data: dash },
+    { data: price },
+    { data: buyerPrice },
+    { data: cashBal },
+    { data: expected },
+    { data: purchases },
+    { data: farmers },
+  ] = await Promise.all([
+    supabase.from("v_dashboard_today").select("*").maybeSingle(),
+    supabase
+      .from("buying_prices")
+      .select("*")
+      .eq("effective_date", today)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("buyer_reference_prices").select("*").eq("effective_date", today).maybeSingle(),
+    supabase.rpc("cash_balances"),
+    supabase.rpc("cash_day_expected", { p_business_date: today }),
+    supabase
+      .from("purchases")
+      .select("id,receipt_no,purchased_at,net_kg,gross_amount_centavos,farmer_id,status")
+      .eq("status", "posted")
+      .gte("purchased_at", since.toISOString())
+      .order("purchased_at", { ascending: false })
+      .limit(400),
+    supabase.from("farmers").select("id,name"),
+  ]);
+
+  const d = (dash ?? null) as DashboardTodayView | null;
+  const p = (price ?? null) as BuyingPrice | null;
+  const bp = (buyerPrice ?? null) as BuyerReferencePrice | null;
+  const marginPerKg = p && bp ? bp.price_per_kg_centavos - p.price_per_kg_centavos : null;
+  const rows = (purchases ?? []) as RecentPurchase[];
+  const farmerName = new Map(
+    ((farmers ?? []) as { id: string; name: string }[]).map((f) => [f.id, f.name]),
+  );
   const cashOnHand =
     ((cashBal ?? []) as { type: string; balance_centavos: number }[]).find(
       (c) => c.type === "cash_on_hand",
     )?.balance_centavos ?? 0;
   const expectedDrawer = (expected as number | null) ?? cashOnHand;
 
-  const d = (dash ?? null) as DashboardTodayView | null;
-  const p = (price ?? null) as BuyingPrice | null;
-  const bp = (buyerPrice ?? null) as BuyerReferencePrice | null;
-  const marginPerKg =
-    p && bp ? bp.price_per_kg_centavos - p.price_per_kg_centavos : null;
+  // 14-day net-kg series
+  const byDay = new Map<string, number>();
+  for (const r of rows) {
+    const k = mdate(r.purchased_at);
+    byDay.set(k, (byDay.get(k) ?? 0) + Number(r.net_kg));
+  }
+  const series: ChartPoint[] = [];
+  const base = new Date(today + "T00:00:00Z");
+  for (let i = 13; i >= 0; i--) {
+    const dd = new Date(base);
+    dd.setUTCDate(base.getUTCDate() - i);
+    const key = dd.toISOString().slice(0, 10);
+    const label = new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    }).format(dd);
+    series.push({ label, value: Math.round((byDay.get(key) ?? 0) * 100) / 100 });
+  }
+
+  // Top farmers this month (by net kg)
+  const month = today.slice(0, 7);
+  const topMap = new Map<string, number>();
+  for (const r of rows) {
+    if (mdate(r.purchased_at).slice(0, 7) === month) {
+      topMap.set(r.farmer_id, (topMap.get(r.farmer_id) ?? 0) + Number(r.net_kg));
+    }
+  }
+  const topFarmers = [...topMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const recent = rows.slice(0, 6);
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title={`Hello${session?.profile.full_name ? ", " + session.profile.full_name.split(" ")[0] : ""} 👋`}
-        subtitle="Today at the buying station"
-      />
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Welcome back{firstName ? `, ${firstName}` : ""} 👋
+        </h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          Here&apos;s what&apos;s happening at the buying station today.
+        </p>
+      </div>
 
-      {!p && (
+      {isOwner && !p && (
         <Card className="border-amber-300 bg-amber-50">
-          <div className="font-semibold text-amber-800">
-            Today&apos;s buying price is not set.
-          </div>
+          <div className="font-semibold text-amber-800">Today&apos;s buying price is not set.</div>
           <p className="mt-1 text-sm text-amber-700">
-            {isOwner
-              ? "Cashiers cannot record purchases until you set today's price."
-              : "Ask the owner to set today's price before recording purchases."}
+            Cashiers cannot record purchases until you set today&apos;s price.
           </p>
-          {isOwner && (
-            <Link href="/prices" className="btn-primary mt-3 inline-flex">
-              Set today&apos;s price
-            </Link>
-          )}
+          <Link href="/prices" className="btn-primary mt-3 inline-flex">
+            Set today&apos;s price
+          </Link>
         </Card>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Kg bought today" value={formatKg(d?.today_net_kg ?? 0)} />
-        <StatCard
-          label="Purchases today"
-          value={String(d?.today_purchase_count ?? 0)}
-        />
-        <StatCard
-          label="Cash paid out today"
-          value={formatPeso(d?.today_cash_out_centavos ?? 0)}
-        />
-        <StatCard
-          label="Buying price / kg"
-          value={p ? formatPeso(p.price_per_kg_centavos) : "—"}
-        />
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <Kpi tone="green" label="Kg bought today" value={formatKg(d?.today_net_kg ?? 0)} hint={`${d?.today_purchase_count ?? 0} purchases`} />
+        <Kpi tone="amber" label="Cash paid out today" value={formatPeso(d?.today_cash_out_centavos ?? 0)} />
+        {isOwner ? (
+          <>
+            <Kpi tone="blue" label="Stock on hand" value={formatKg(d?.stock_on_hand_kg ?? 0)} hint={`Cost ${formatPeso(d?.stock_value_centavos ?? 0)}`} />
+            <Kpi tone="violet" label="Gross profit (month)" value={formatPeso(d?.month_gross_profit_centavos ?? 0)} hint={marginPerKg !== null ? `Margin ${formatPeso(marginPerKg)}/kg` : undefined} />
+            <Kpi tone="rose" label="Total utang out" value={formatPeso(d?.total_utang_outstanding_centavos ?? 0)} />
+          </>
+        ) : (
+          <>
+            <Kpi tone="blue" label="Cash on hand" value={formatPeso(cashOnHand)} />
+            <Kpi tone="violet" label="Expected in drawer" value={formatPeso(expectedDrawer)} />
+            <Kpi tone="green" label="Buying price / kg" value={p ? formatPeso(p.price_per_kg_centavos) : "—"} />
+          </>
+        )}
       </div>
 
-      {isOwner && (
-        <>
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              label="Total utang out"
-              value={formatPeso(d?.total_utang_outstanding_centavos ?? 0)}
-            />
-            <StatCard
-              label="Margin / kg"
-              value={marginPerKg !== null ? formatPeso(marginPerKg) : "—"}
-              hint={
-                bp ? `Buyer price ${formatPeso(bp.price_per_kg_centavos)}/kg` : "Set buyer price"
-              }
-            />
-          </div>
-
-          <h2 className="pt-2 text-sm font-semibold text-gray-500">
-            Inventory &amp; this month
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              label="Stock on hand"
-              value={formatKg(d?.stock_on_hand_kg ?? 0)}
-              hint={`Cost ${formatPeso(d?.stock_value_centavos ?? 0)}`}
-            />
-            <StatCard
-              label="Stock @ buyer price"
-              value={formatPeso(d?.stock_value_at_buyer_centavos ?? 0)}
-              hint="If sold at buyer's price"
-            />
-            <StatCard
-              label="Gross profit (month)"
-              value={formatPeso(d?.month_gross_profit_centavos ?? 0)}
-              hint={`Net ${formatPeso(d?.month_net_profit_centavos ?? 0)} after expenses`}
-            />
-            <StatCard
-              label="Shrinkage / gap"
-              value={`${d?.month_shrinkage_pct ?? 0}%`}
-              hint={
-                d?.avg_deduction_gap_pct != null
-                  ? `Avg deduction gap ${d.avg_deduction_gap_pct}%`
-                  : undefined
-              }
-            />
-          </div>
-        </>
-      )}
-
-      {!isOwner && (
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard label="Cash on hand" value={formatPeso(cashOnHand)} />
-          <StatCard label="Expected in drawer" value={formatPeso(expectedDrawer)} />
+      {/* Summary chart */}
+      <Card>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="font-semibold">Kg bought — last 14 days</h2>
+          <Link href="/purchases/new" className="btn-primary px-4 py-2 text-sm">
+            ⚖️ Buy
+          </Link>
         </div>
-      )}
+        <LineChart points={series} valueFormat={(n) => formatKg(n)} />
+      </Card>
 
-      <div className="grid grid-cols-1 gap-3">
-        <Link href="/purchases/new" className="btn-primary py-5 text-lg">
-          ⚖️ Record a purchase
-        </Link>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        {/* Recent purchases */}
+        <Card className="lg:col-span-3">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-semibold">Recent purchases</h2>
+            <Link href="/purchases" className="text-sm font-medium text-brand-700">
+              View all
+            </Link>
+          </div>
+          {recent.length === 0 ? (
+            <p className="text-sm text-gray-400">No purchases yet.</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {recent.map((r) => (
+                <Link
+                  key={r.id}
+                  href={`/purchases/${r.id}`}
+                  className="flex items-center justify-between py-2.5 active:bg-gray-50"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-50 text-base">
+                      👨‍🌾
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
+                        {farmerName.get(r.farmer_id) ?? "Farmer"}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        #{r.receipt_no} · {formatDate(r.purchased_at)} · {formatKg(r.net_kg)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right text-sm font-semibold">
+                    {formatPeso(r.gross_amount_centavos)}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Top farmers this month */}
+        <Card className="lg:col-span-2">
+          <h2 className="mb-3 font-semibold">Top farmers this month</h2>
+          {topFarmers.length === 0 ? (
+            <p className="text-sm text-gray-400">No activity this month.</p>
+          ) : (
+            <div className="space-y-2">
+              {topFarmers.map(([fid, kg], i) => (
+                <Link
+                  key={fid}
+                  href={`/farmers/${fid}`}
+                  className="flex items-center justify-between rounded-xl px-2 py-2 hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-7 w-7 place-items-center rounded-full bg-gray-100 text-xs font-bold text-gray-600">
+                      {i + 1}
+                    </span>
+                    <span className="text-sm font-medium">{farmerName.get(fid) ?? "Farmer"}</span>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700">{formatKg(kg)}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
     </div>
   );
