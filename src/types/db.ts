@@ -92,6 +92,7 @@ export interface UtangLedgerRow {
   approved_by: string | null;
   approved_at: string | null;
   remarks: string | null;
+  signature_data?: string | null;
   created_by: string | null;
   created_at: string;
 }
