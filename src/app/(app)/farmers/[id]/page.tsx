@@ -1,18 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import {
-  PageHeader,
-  Card,
-  Field,
-  Input,
-  Textarea,
-  Badge,
-  EmptyState,
-} from "@/components/ui";
+import { getSessionProfile } from "@/lib/auth";
+import { PageHeader, Card, Field, Input, Badge, EmptyState } from "@/components/ui";
 import { ActionForm } from "@/components/ActionForm";
 import { SubmitButton } from "@/components/SubmitButton";
-import { createAdvance, recordRepayment } from "../../utang/actions";
+import { AdvanceForm } from "@/components/AdvanceForm";
+import { recordRepayment } from "../../utang/actions";
 import { formatPeso } from "@/lib/money";
 import { formatKg } from "@/lib/weight";
 import { formatDate } from "@/lib/format";
@@ -23,6 +17,8 @@ import type {
   UtangAgingView,
   UtangLedgerRow,
   Purchase,
+  Business,
+  BusinessSettings,
 } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +29,7 @@ export default async function FarmerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getSessionProfile();
   const supabase = await createClient();
 
   const { data: farmerData } = await supabase
@@ -43,31 +40,51 @@ export default async function FarmerDetailPage({
   if (!farmerData) notFound();
   const farmer = farmerData as Farmer;
 
-  const [{ data: bal }, { data: ded }, { data: aging }, { data: ledger }, { data: purchases }] =
-    await Promise.all([
-      supabase.from("v_farmer_balances").select("*").eq("farmer_id", id).maybeSingle(),
-      supabase.from("v_farmer_deduction_avg").select("*").eq("farmer_id", id).maybeSingle(),
-      supabase.from("v_utang_aging").select("*").eq("farmer_id", id).maybeSingle(),
-      supabase
-        .from("utang_ledger")
-        .select("*")
-        .eq("farmer_id", id)
-        .order("entry_date", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(50),
-      supabase
-        .from("purchases")
-        .select("*")
-        .eq("farmer_id", id)
-        .order("purchased_at", { ascending: false })
-        .limit(20),
-    ]);
+  const [
+    { data: bal },
+    { data: ded },
+    { data: aging },
+    { data: ledger },
+    { data: purchases },
+    { data: biz },
+    { data: settings },
+  ] = await Promise.all([
+    supabase.from("v_farmer_balances").select("*").eq("farmer_id", id).maybeSingle(),
+    supabase.from("v_farmer_deduction_avg").select("*").eq("farmer_id", id).maybeSingle(),
+    supabase.from("v_utang_aging").select("*").eq("farmer_id", id).maybeSingle(),
+    supabase
+      .from("utang_ledger")
+      .select(
+        "id,farmer_id,entry_date,direction,amount_centavos,source_type,source_id,status,requires_approval,approved_by,approved_at,remarks,created_by,created_at",
+      )
+      .eq("farmer_id", id)
+      .order("entry_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("purchases")
+      .select("*")
+      .eq("farmer_id", id)
+      .order("purchased_at", { ascending: false })
+      .limit(20),
+    supabase.from("businesses").select("*").limit(1).maybeSingle(),
+    supabase.from("business_settings").select("*").limit(1).maybeSingle(),
+  ]);
 
   const balance = (bal as FarmerBalanceView | null)?.balance_centavos ?? 0;
   const dedAvg = (ded as FarmerDeductionAvgView | null)?.avg_deduction_pct ?? null;
   const ag = aging as UtangAgingView | null;
   const ledgerRows = (ledger ?? []) as UtangLedgerRow[];
   const purchaseRows = (purchases ?? []) as Purchase[];
+
+  const business = biz as Business | null;
+  const header = (settings as BusinessSettings | null)?.receipt_header ?? {};
+  const businessInfo = {
+    name: (header["business_name"] as string) || business?.name || "CopraBooks",
+    address: (header["address"] as string) || business?.address || undefined,
+    footer: (header["footer"] as string) || undefined,
+  };
+  const cashierName = session?.profile.full_name ?? session?.email ?? null;
 
   return (
     <div className="space-y-4">
@@ -129,16 +146,14 @@ export default async function FarmerDetailPage({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Card>
           <h2 className="mb-3 font-semibold">Give cash advance</h2>
-          <ActionForm action={createAdvance} className="space-y-3">
-            <input type="hidden" name="farmer_id" value={id} />
-            <Field label="Amount (₱)">
-              <Input type="number" name="amount" step="0.01" min="0" inputMode="decimal" required />
-            </Field>
-            <Field label="Remarks">
-              <Input name="remarks" />
-            </Field>
-            <SubmitButton>Record advance</SubmitButton>
-          </ActionForm>
+          <AdvanceForm
+            farmerId={id}
+            farmerName={farmer.name}
+            barangay={farmer.barangay}
+            balanceCentavos={balance}
+            business={businessInfo}
+            cashierName={cashierName}
+          />
         </Card>
 
         <Card>

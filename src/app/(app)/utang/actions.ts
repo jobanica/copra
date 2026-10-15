@@ -25,6 +25,7 @@ export async function createAdvance(
     p_farmer_id: farmerId,
     p_amount_centavos: pesosToCentavos(amount),
     p_remarks: remarks,
+    p_signature: null,
   });
   if (error) return { error: error.message };
 
