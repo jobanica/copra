@@ -15,21 +15,30 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const today = manilaToday();
 
-  const [{ data: dash }, { data: price }, { data: buyerPrice }] = await Promise.all([
-    supabase.from("v_dashboard_today").select("*").maybeSingle(),
-    supabase
-      .from("buying_prices")
-      .select("*")
-      .eq("effective_date", today)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("buyer_reference_prices")
-      .select("*")
-      .eq("effective_date", today)
-      .maybeSingle(),
-  ]);
+  const [{ data: dash }, { data: price }, { data: buyerPrice }, { data: cashBal }, { data: expected }] =
+    await Promise.all([
+      supabase.from("v_dashboard_today").select("*").maybeSingle(),
+      supabase
+        .from("buying_prices")
+        .select("*")
+        .eq("effective_date", today)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("buyer_reference_prices")
+        .select("*")
+        .eq("effective_date", today)
+        .maybeSingle(),
+      supabase.rpc("cash_balances"),
+      supabase.rpc("cash_day_expected", { p_business_date: today }),
+    ]);
+
+  const cashOnHand =
+    ((cashBal ?? []) as { type: string; balance_centavos: number }[]).find(
+      (c) => c.type === "cash_on_hand",
+    )?.balance_centavos ?? 0;
+  const expectedDrawer = (expected as number | null) ?? cashOnHand;
 
   const d = (dash ?? null) as DashboardTodayView | null;
   const p = (price ?? null) as BuyingPrice | null;
@@ -124,6 +133,13 @@ export default async function DashboardPage() {
             />
           </div>
         </>
+      )}
+
+      {!isOwner && (
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard label="Cash on hand" value={formatPeso(cashOnHand)} />
+          <StatCard label="Expected in drawer" value={formatPeso(expectedDrawer)} />
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-3">

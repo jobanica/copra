@@ -293,3 +293,180 @@ export interface SaleReconciliationView {
   running_avg_deduction_gap_pct: number;
   running_avg_weight_gap_pct: number;
 }
+
+// ---- Phase 3: accounting & cash -------------------------------------------
+export type AccountType = "asset" | "liability" | "equity" | "income" | "expense";
+export type NormalBalance = "debit" | "credit";
+export type EquityType = "capital_in" | "drawing" | "transfer";
+export type CashDayStatus = "open" | "counted" | "closed";
+
+export interface GlAccount {
+  id: string;
+  business_id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  normal_balance: NormalBalance;
+  is_cash: boolean;
+  is_system: boolean;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface AccountingPeriod {
+  id: string;
+  business_id: string;
+  year: number;
+  month: number;
+  status: "open" | "closed";
+  closed_by: string | null;
+  closed_at: string | null;
+  created_at: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  business_id: string;
+  entry_no: number;
+  entry_date: string;
+  source_type: string;
+  source_id: string | null;
+  memo: string | null;
+  is_manual: boolean;
+  status: "posted" | "reversed";
+  reverses_entry_id: string | null;
+  reversed_by_entry_id: string | null;
+  period_id: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface JournalLine {
+  id: string;
+  entry_id: string;
+  business_id: string;
+  account_id: string;
+  debit_centavos: number;
+  credit_centavos: number;
+  line_memo: string | null;
+}
+
+export interface CashAccount {
+  id: string;
+  business_id: string;
+  name: string;
+  type: "cash_on_hand" | "bank" | "gcash";
+  gl_account_id: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface Expense {
+  id: string;
+  business_id: string;
+  expense_date: string;
+  expense_account_id: string;
+  cash_account_id: string;
+  amount_centavos: number;
+  remarks: string | null;
+  receipt_photo_url: string | null;
+  status: "posted" | "voided";
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface EquityTransaction {
+  id: string;
+  business_id: string;
+  txn_date: string;
+  type: EquityType;
+  amount_centavos: number;
+  cash_account_id: string | null;
+  from_account_id: string | null;
+  to_account_id: string | null;
+  remarks: string | null;
+  status: "posted" | "voided";
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface CashDay {
+  id: string;
+  business_id: string;
+  business_date: string;
+  opening_float_centavos: number;
+  status: CashDayStatus;
+  opened_by: string | null;
+  closed_by: string | null;
+  approved_by: string | null;
+  created_at: string;
+  closed_at: string | null;
+}
+
+export interface CashCount {
+  id: string;
+  business_id: string;
+  cash_day_id: string;
+  counted_centavos: number;
+  expected_centavos: number;
+  variance_centavos: number;
+  denominations: unknown;
+  counted_by: string | null;
+  created_at: string;
+}
+
+export interface AccountBalanceView {
+  account_id: string;
+  business_id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  normal_balance: NormalBalance;
+  sort_order: number;
+  debit_total_centavos: number;
+  credit_total_centavos: number;
+  debit_minus_credit_centavos: number;
+  balance_centavos: number;
+}
+
+export interface TrialBalanceView {
+  account_id: string;
+  business_id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  sort_order: number;
+  debit_balance_centavos: number;
+  credit_balance_centavos: number;
+}
+
+export interface GeneralLedgerView {
+  line_id: string;
+  business_id: string;
+  account_id: string;
+  code: string;
+  name: string;
+  entry_no: number;
+  entry_date: string;
+  source_type: string;
+  memo: string | null;
+  status: string;
+  debit_centavos: number;
+  credit_centavos: number;
+  running_debit_minus_credit_centavos: number;
+}
+
+export interface PlSummaryView {
+  business_id: string;
+  type: AccountType;
+  balance_centavos: number;
+}
+
+/** Result row of the cash_balances() RPC. */
+export interface CashBalanceRow {
+  cash_account_id: string;
+  name: string;
+  type: "cash_on_hand" | "bank" | "gcash";
+  balance_centavos: number;
+}

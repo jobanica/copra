@@ -56,6 +56,17 @@ begin
     'footer', 'Salamat po! — CopraBooks'))
   on conflict (business_id) do nothing;
 
+  -- Chart of accounts + cash accounts (Phase 3).
+  perform public.seed_default_accounts(v_biz);
+
+  -- Opening owner capital so cash on hand funds the buying (Phase 3).
+  if (select count(*) from public.equity_transactions where business_id = v_biz) = 0 then
+    insert into public.equity_transactions (business_id, txn_date, type, amount_centavos, cash_account_id, remarks)
+    values (v_biz, v_today - 61, 'capital_in', 100000000,
+      (select id from public.cash_accounts where business_id = v_biz and type = 'cash_on_hand'),
+      'Opening capital');
+  end if;
+
   -- One ungraded grade (standard dried copra) --------------------------------
   insert into public.grades (business_id, name) values (v_biz, 'Standard')
   on conflict (business_id, name) do nothing;
@@ -223,4 +234,6 @@ begin
   end if;
 
   perform public.rebuild_inventory(v_biz);
+  -- Regenerate all auto journal entries now that sale costs are computed.
+  perform public.rebuild_journal(v_biz);
 end $$;

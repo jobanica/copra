@@ -47,8 +47,27 @@ Supabase (Postgres + Auth + RLS), and deployed on Vercel.
 - Sales, stock counts and the movement log (cost/profit detail) are **owner
   only**; stock-on-hand is visible to both roles.
 
-Phases 3–4 (double-entry accounting & auto-posting, cash management & day-close,
-financial reports, dashboards, Excel/PDF export) follow.
+## Phase 3 (this build)
+
+- **Double-entry accounting, auto-posted.** Every transaction creates a balanced
+  journal entry via database triggers on the source tables (purchases, utang,
+  sales, stock counts, expenses, equity) — the Phase 1/2 RPCs are untouched. A
+  deferred constraint enforces debits = credits on every entry; posted entries
+  are immutable (corrections are reversing entries).
+- **Chart of accounts** (default, owner-editable) and **manual journal entries**
+  (owner only, must balance).
+- **Cash management:** Cash on Hand / Bank / GCash accounts, expenses (cashier
+  may record, with category + source account), owner capital in / drawings /
+  transfers between accounts.
+- **Start/end-of-day cash cycle:** opening float, expected drawer (opening +
+  Cash-on-Hand ledger movement for the day), cashier count with variance, and
+  owner-approved day close.
+- **Month-end period close** locks a period against further posting.
+- **Reports:** general ledger (with running balance), trial balance, income
+  statement and balance sheet roll-ups, cash-account balances.
+
+Phase 4 (polished financial reports & dashboards, Excel/PDF export, offline sync
+hardening) follows.
 
 ## Getting started
 
@@ -82,7 +101,13 @@ Or paste each file in order into the Supabase SQL editor:
    `post_stock_count`, inventory-aware `post_purchase`/`void_purchase`
 7. `0007_inventory_rls.sql` — Phase 2 RLS + grants + inventory backfill
 8. `0008_inventory_views.sql` — sale profit, reconciliation, extended dashboard
-9. `supabase/seed.sql` — sample data (run as the service role)
+9. `0009_accounting.sql` — chart of accounts, periods, journal (balanced +
+   immutable), cash accounts, expenses, equity, cash day cycle
+10. `0010_accounting_functions.sql` — posting engine, source triggers, write RPCs
+11. `0011_accounting_rls.sql` — Phase 3 RLS + grants + account seeding + journal backfill
+12. `0012_accounting_views.sql` — trial balance, general ledger, IS/BS roll-ups
+13. `0013_cash_helpers.sql` — cashier-safe cash balance / expected-drawer RPCs
+14. `supabase/seed.sql` — sample data (run as the service role)
 
 The **first user to sign up** becomes the Owner and the business + default
 settings are created automatically. The next sign-up becomes a Cashier.
@@ -113,6 +138,12 @@ settings are created automatically. The next sign-up becomes a Cashier.
   recomputes them from posted purchases/sales/stock-counts for backfill and
   repair. Costing uses integer-centavos proportional math (`value * kg / qty`),
   so the average cost per kg never drifts.
+- **Accounting is trigger-driven.** AFTER triggers on the source tables post a
+  balanced journal entry per transaction via shared per-source posting
+  functions; `rebuild_journal()` reuses the same functions to regenerate all
+  auto entries (manual entries are preserved). The GL reconciles with the
+  subledgers (Copra Inventory = `inventory_state`; Advances to Farmers = total
+  farmer utang), and the trial balance always balances.
 - **RLS everywhere**, keyed on `current_business_id()`. Views use
   `security_invoker` so policies apply to the querying user.
 - **Receipt numbers** are allocated atomically via `document_counters`:
@@ -125,7 +156,8 @@ settings are created automatically. The next sign-up becomes a Cashier.
 supabase/migrations/   SQL schema, functions, RLS, views
 supabase/seed.sql      sample data
 src/app/(app)/         authenticated app (dashboard, prices, farmers,
-                       purchases, utang, sales, stock, settings)
+                       purchases, utang, sales, stock, cash, accounting,
+                       settings)
 src/app/login/         auth
 src/lib/               supabase clients, money/weight, escpos, offline queue
 src/components/        UI primitives, forms, receipt printing
