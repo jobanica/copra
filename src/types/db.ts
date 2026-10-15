@@ -160,4 +160,136 @@ export interface DashboardTodayView {
   today_cash_out_centavos: number;
   today_purchase_count: number;
   total_utang_outstanding_centavos: number;
+  // Phase 2
+  stock_on_hand_kg: number;
+  stock_value_centavos: number;
+  stock_value_at_buyer_centavos: number;
+  month_net_profit_centavos: number;
+  month_gross_profit_centavos: number;
+  avg_deduction_gap_pct: number | null;
+  month_shrinkage_pct: number | null;
+}
+
+// ---- Phase 2: inventory & sales -------------------------------------------
+export type PaymentMethod = "cash" | "bank" | "gcash";
+export type SaleStatus = "posted" | "voided";
+
+export interface InventoryState {
+  business_id: string;
+  qty_on_hand_kg: number;
+  total_value_centavos: number;
+  avg_cost_centavos: number;
+  updated_at: string;
+}
+
+export type InventoryMovementType =
+  | "purchase_in"
+  | "purchase_void"
+  | "sale_out"
+  | "shrinkage"
+  | "count_adj"
+  | "sale_void";
+
+export interface InventoryMovement {
+  id: string;
+  business_id: string;
+  movement_type: InventoryMovementType;
+  qty_kg: number;
+  unit_cost_centavos: number | null;
+  total_cost_centavos: number;
+  source_type: string;
+  source_id: string | null;
+  balance_qty_after: number;
+  balance_value_after: number;
+  occurred_at: string;
+  created_at: string;
+}
+
+export interface Buyer {
+  id: string;
+  business_id: string;
+  name: string;
+  contact: string | null;
+  notes: string | null;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface Sale {
+  id: string;
+  business_id: string;
+  sale_no: number;
+  buyer_id: string | null;
+  sale_date: string;
+  plate_no: string | null;
+  driver: string | null;
+  our_loaded_kg: number;
+  our_avg_deduction_pct: number;
+  buyer_gross_kg: number | null;
+  buyer_deduction_pct: number | null;
+  buyer_net_kg: number | null;
+  price_per_kg_centavos: number;
+  amount_received_centavos: number;
+  payment_method: PaymentMethod | null;
+  trucking_centavos: number;
+  labor_centavos: number;
+  other_expenses_centavos: number;
+  book_kg: number;
+  shrinkage_kg: number;
+  shrinkage_flag: boolean;
+  cost_of_sales_centavos: number;
+  shrinkage_value_centavos: number;
+  remarks: string | null;
+  status: SaleStatus;
+  created_by: string | null;
+  created_at: string;
+  voided_by: string | null;
+  void_reason: string | null;
+  voided_at: string | null;
+}
+
+export interface StockCount {
+  id: string;
+  business_id: string;
+  count_date: string;
+  counted_kg: number;
+  book_kg: number;
+  variance_kg: number;
+  adjustment_value_centavos: number;
+  remarks: string | null;
+  status: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface SaleProfitView {
+  id: string;
+  business_id: string;
+  sale_no: number;
+  sale_date: string;
+  buyer_id: string | null;
+  revenue_centavos: number;
+  cogs_centavos: number;
+  expenses_centavos: number;
+  shrinkage_value_centavos: number;
+  gross_profit_centavos: number;
+  net_profit_centavos: number;
+}
+
+export interface SaleReconciliationView {
+  id: string;
+  business_id: string;
+  sale_no: number;
+  sale_date: string;
+  buyer_id: string | null;
+  our_loaded_kg: number;
+  buyer_gross_kg: number | null;
+  our_avg_deduction_pct: number;
+  buyer_deduction_pct: number | null;
+  weight_gap_kg: number;
+  weight_gap_pct: number;
+  deduction_gap_pct: number;
+  running_avg_deduction_gap_pct: number;
+  running_avg_weight_gap_pct: number;
 }

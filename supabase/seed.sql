@@ -157,3 +157,70 @@ begin
     end loop;
   end if;
 end $$;
+
+-- ============================================================================
+-- Phase 2 sample data: traders (buyers) and truckload sales.
+-- Inventory is recomputed at the end via rebuild_inventory().
+-- ============================================================================
+do $$
+declare
+  v_biz     uuid;
+  v_today   date := (now() at time zone 'Asia/Manila')::date;
+  v_b1      uuid;
+  v_b2      uuid;
+  v_loaded  numeric(12,2);
+  v_bgross  numeric(12,2);
+  v_bnet    numeric(12,2);
+  v_price   bigint := 5400;   -- buyer pays ~₱54.00/kg (we buy at ~₱45)
+  v_sno     bigint;
+begin
+  select id into v_biz from public.businesses order by created_at limit 1;
+
+  if (select count(*) from public.buyers where business_id = v_biz) = 0 then
+    insert into public.buyers (business_id, name, contact)
+      values (v_biz, 'Davao Copra Traders Inc.', 'Mr. Tan 0917-555-0101')
+      returning id into v_b1;
+    insert into public.buyers (business_id, name, contact)
+      values (v_biz, 'Zamboanga Oil Millers', 'Ms. Lim 0918-555-0202')
+      returning id into v_b2;
+  else
+    select id into v_b1 from public.buyers where business_id = v_biz order by created_at limit 1;
+    select id into v_b2 from public.buyers where business_id = v_biz order by created_at desc limit 1;
+  end if;
+
+  if (select count(*) from public.sales where business_id = v_biz) = 0 then
+    -- Truckload 1 (~20 days ago): a little shrinkage (book > loaded).
+    v_loaded := 4000.00;
+    v_bgross := 3980.00;                    -- buyer weighs slightly less (transit)
+    v_bnet   := round(v_bgross * 0.93, 2);  -- buyer applies 7% deduction
+    v_sno := public.allocate_document_number(v_biz, 'sale');
+    insert into public.sales (
+      business_id, sale_no, buyer_id, sale_date, plate_no, driver,
+      our_loaded_kg, our_avg_deduction_pct, buyer_gross_kg, buyer_deduction_pct, buyer_net_kg,
+      price_per_kg_centavos, amount_received_centavos, payment_method,
+      trucking_centavos, labor_centavos, other_expenses_centavos, book_kg, remarks, status)
+    values (
+      v_biz, v_sno, v_b1, v_today - 20, 'GAB-1234', 'Juan Cruz',
+      v_loaded, 5.00, v_bgross, 7.00, v_bnet,
+      v_price, round(v_bnet * v_price)::bigint, 'bank',
+      800000, 150000, 50000, 4080.00, 'Seed truckload 1', 'posted');
+
+    -- Truckload 2 (~5 days ago): no shrinkage recorded (book = loaded).
+    v_loaded := 4500.00;
+    v_bgross := 4490.00;
+    v_bnet   := round(v_bgross * 0.93, 2);
+    v_sno := public.allocate_document_number(v_biz, 'sale');
+    insert into public.sales (
+      business_id, sale_no, buyer_id, sale_date, plate_no, driver,
+      our_loaded_kg, our_avg_deduction_pct, buyer_gross_kg, buyer_deduction_pct, buyer_net_kg,
+      price_per_kg_centavos, amount_received_centavos, payment_method,
+      trucking_centavos, labor_centavos, other_expenses_centavos, book_kg, remarks, status)
+    values (
+      v_biz, v_sno, v_b2, v_today - 5, 'LMN-5678', 'Pedro Santos',
+      v_loaded, 5.00, v_bgross, 6.50, v_bnet,
+      v_price, round(v_bnet * v_price)::bigint, 'gcash',
+      900000, 150000, 0, 4500.00, 'Seed truckload 2', 'posted');
+  end if;
+
+  perform public.rebuild_inventory(v_biz);
+end $$;

@@ -110,3 +110,8 @@ select
      where vb.business_id = b.id
   )::bigint as total_utang_outstanding_centavos
 from public.businesses b;
+
+-- Grant SELECT on the views created above (GRANT ON ALL TABLES earlier in the
+-- migration order ran before these views existed).
+grant select on all tables in schema public to authenticated;
+grant all on all tables in schema public to service_role;

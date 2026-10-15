@@ -79,19 +79,51 @@ export default async function DashboardPage() {
       </div>
 
       {isOwner && (
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard
-            label="Total utang out"
-            value={formatPeso(d?.total_utang_outstanding_centavos ?? 0)}
-          />
-          <StatCard
-            label="Margin / kg"
-            value={marginPerKg !== null ? formatPeso(marginPerKg) : "—"}
-            hint={
-              bp ? `Buyer price ${formatPeso(bp.price_per_kg_centavos)}/kg` : "Set buyer price"
-            }
-          />
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard
+              label="Total utang out"
+              value={formatPeso(d?.total_utang_outstanding_centavos ?? 0)}
+            />
+            <StatCard
+              label="Margin / kg"
+              value={marginPerKg !== null ? formatPeso(marginPerKg) : "—"}
+              hint={
+                bp ? `Buyer price ${formatPeso(bp.price_per_kg_centavos)}/kg` : "Set buyer price"
+              }
+            />
+          </div>
+
+          <h2 className="pt-2 text-sm font-semibold text-gray-500">
+            Inventory &amp; this month
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard
+              label="Stock on hand"
+              value={formatKg(d?.stock_on_hand_kg ?? 0)}
+              hint={`Cost ${formatPeso(d?.stock_value_centavos ?? 0)}`}
+            />
+            <StatCard
+              label="Stock @ buyer price"
+              value={formatPeso(d?.stock_value_at_buyer_centavos ?? 0)}
+              hint="If sold at buyer's price"
+            />
+            <StatCard
+              label="Gross profit (month)"
+              value={formatPeso(d?.month_gross_profit_centavos ?? 0)}
+              hint={`Net ${formatPeso(d?.month_net_profit_centavos ?? 0)} after expenses`}
+            />
+            <StatCard
+              label="Shrinkage / gap"
+              value={`${d?.month_shrinkage_pct ?? 0}%`}
+              hint={
+                d?.avg_deduction_gap_pct != null
+                  ? `Avg deduction gap ${d.avg_deduction_gap_pct}%`
+                  : undefined
+              }
+            />
+          </div>
+        </>
       )}
 
       <div className="grid grid-cols-1 gap-3">
