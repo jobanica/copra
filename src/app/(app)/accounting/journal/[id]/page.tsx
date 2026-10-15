@@ -53,8 +53,8 @@ export default async function JournalEntryPage({
 
       {entry.memo && <p className="text-sm text-gray-600">{entry.memo}</p>}
 
-      <Card className="p-0">
-        <table className="w-full text-sm">
+      <Card className="overflow-x-auto p-0">
+        <table className="w-full min-w-[22rem] text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-xs text-gray-400">
               <th className="px-4 py-2">Account</th>

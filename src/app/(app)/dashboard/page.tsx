@@ -58,7 +58,7 @@ function Kpi({
   return (
     <div className={`rounded-2xl p-4 ${TONES[tone]}`}>
       <div className="text-xs font-medium opacity-80">{label}</div>
-      <div className="mt-1 text-2xl font-bold tracking-tight">{value}</div>
+      <div className="mt-1 text-xl font-bold tracking-tight tabular-nums sm:text-2xl">{value}</div>
       {hint && <div className="mt-0.5 text-xs opacity-70">{hint}</div>}
     </div>
   );
@@ -221,7 +221,8 @@ export default async function DashboardPage({
       )}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <Kpi tone="blue" label="Cash on hand" value={formatPeso(cashOnHand)} hint="in drawer now" />
         <Kpi tone="green" label="Kg bought" value={formatKg(rangeNetKg)} hint={`${rows.length} purchases · ${rangeLabel}`} />
         <Kpi tone="amber" label="Cash paid out" value={formatPeso(rangeCashOut)} hint={rangeLabel} />
         <Kpi tone="rose" label="Total expenses" value={formatPeso(totalExpenses)} hint={rangeLabel} />
@@ -233,7 +234,6 @@ export default async function DashboardPage({
           </>
         ) : (
           <>
-            <Kpi tone="blue" label="Cash on hand" value={formatPeso(cashOnHand)} />
             <Kpi tone="violet" label="Expected in drawer" value={formatPeso(expectedDrawer)} />
             <Kpi tone="green" label="Buying price / kg" value={p ? formatPeso(p.price_per_kg_centavos) : "—"} />
           </>

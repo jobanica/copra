@@ -12,12 +12,12 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-start justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
       </div>
-      {action}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
@@ -43,8 +43,8 @@ export function StatCard({
 }) {
   return (
     <div className="card">
-      <div className="text-sm text-gray-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold">{value}</div>
+      <div className="truncate text-sm text-gray-500">{label}</div>
+      <div className="mt-1 text-xl font-bold tabular-nums sm:text-2xl">{value}</div>
       {hint && <div className="mt-1 text-xs text-gray-400">{hint}</div>}
     </div>
   );

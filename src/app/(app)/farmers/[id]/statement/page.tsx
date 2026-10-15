@@ -60,7 +60,8 @@ export default async function StatementPage({
           </div>
         </div>
 
-        <table className="mt-4 w-full border-collapse text-sm">
+        <div className="mt-4 -mx-1 overflow-x-auto px-1">
+        <table className="w-full min-w-[26rem] border-collapse text-sm">
           <thead>
             <tr className="border-b border-gray-300 text-left">
               <th className="py-1">Date</th>
@@ -101,6 +102,7 @@ export default async function StatementPage({
             </tr>
           </tfoot>
         </table>
+        </div>
 
         <div className="mt-6 text-xs text-gray-400">
           Printed {formatDate(new Date())}

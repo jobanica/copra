@@ -58,7 +58,7 @@ export default async function AccountingPage() {
         action={<LinkButton href="/accounting/journal">Journal</LinkButton>}
       />
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         <LinkButton href="/accounting/reports" variant="primary">Reports</LinkButton>
         <LinkButton href="/accounting/chart" variant="secondary">Chart</LinkButton>
         <LinkButton href="/accounting/manual" variant="secondary">Manual JE</LinkButton>
@@ -127,9 +127,9 @@ export default async function AccountingPage() {
       </Card>
 
       {/* Trial balance */}
-      <Card>
+      <Card className="overflow-x-auto">
         <h2 className="mb-2 font-semibold">Trial balance</h2>
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[20rem] text-sm">
           <thead>
             <tr className="border-b border-gray-200 text-left text-xs text-gray-400">
               <th className="py-1">Account</th>

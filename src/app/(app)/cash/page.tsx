@@ -93,7 +93,7 @@ export default async function CashPage() {
         action={<LinkButton href="/cash/expenses/new">+ Expense</LinkButton>}
       />
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {balanceRows.map((b) => (
           <StatCard
             key={b.cash_account_id}
