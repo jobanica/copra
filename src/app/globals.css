@@ -15,6 +15,20 @@ body {
   @apply bg-gray-50 text-gray-900 antialiased;
 }
 
+@media print {
+  body {
+    background: #fff;
+  }
+  main {
+    padding: 0 !important;
+  }
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+}
+
 /* Larger tap targets for the cashier on a phone. */
 @layer components {
   .btn {

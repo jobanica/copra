@@ -66,8 +66,24 @@ Supabase (Postgres + Auth + RLS), and deployed on Vercel.
 - **Reports:** general ledger (with running balance), trial balance, income
   statement and balance sheet roll-ups, cash-account balances.
 
-Phase 4 (polished financial reports & dashboards, Excel/PDF export, offline sync
-hardening) follows.
+## Phase 4 (this build) — final
+
+- **Financial reports** with date filters: income statement, balance sheet,
+  trial balance, general ledger (optional account), cash book (per cash
+  account), expense report, and a 12-month summary (kg bought, buying cash,
+  revenue, COGS, gross/net profit). Built on parameterized `report_*` SQL
+  functions that respect RLS (owner-only, like the ledger).
+- **Export**: every report exports to **Excel** (`.xlsx`, via an authenticated
+  API route) and to **PDF** (print-optimized layout; the on-screen chrome is
+  hidden when printing).
+- **Offline sync hardening**: queued purchases now have a dedicated **Unsynced**
+  screen (retry / remove, with per-item error messages), the badge links
+  straight to it, and sync runs on reconnect, on app foreground
+  (`visibilitychange`) and on a short interval. Business errors (e.g. a changed
+  price) are surfaced instead of retried forever; `client_uuid` keeps syncing
+  idempotent.
+
+All four phases are complete.
 
 ## Getting started
 
@@ -107,7 +123,8 @@ Or paste each file in order into the Supabase SQL editor:
 11. `0011_accounting_rls.sql` — Phase 3 RLS + grants + account seeding + journal backfill
 12. `0012_accounting_views.sql` — trial balance, general ledger, IS/BS roll-ups
 13. `0013_cash_helpers.sql` — cashier-safe cash balance / expected-drawer RPCs
-14. `supabase/seed.sql` — sample data (run as the service role)
+14. `0014_reports.sql` — parameterized financial report functions
+15. `supabase/seed.sql` — sample data (run as the service role)
 
 The **first user to sign up** becomes the Owner and the business + default
 settings are created automatically. The next sign-up becomes a Cashier.

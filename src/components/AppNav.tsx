@@ -34,7 +34,7 @@ export function AppNav({ role }: { role: UserRole }) {
       : base;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-2xl border-t border-gray-200 bg-white">
+    <nav className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-2xl border-t border-gray-200 bg-white print:hidden">
       <ul className="flex overflow-x-auto">
         {links.map((item) => {
           const active =

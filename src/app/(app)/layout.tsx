@@ -16,7 +16,7 @@ export default async function AppLayout({
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 print:hidden">
         <div>
           <div className="font-bold text-brand-700">CopraBooks</div>
           <div className="text-xs text-gray-500">

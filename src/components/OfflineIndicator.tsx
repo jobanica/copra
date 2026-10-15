@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { countPending } from "@/lib/offline/db";
 import { syncPending } from "@/lib/offline/sync";
@@ -20,6 +21,7 @@ export function OfflineIndicator() {
   }, []);
 
   const runSync = useCallback(async () => {
+    if (syncing) return;
     setSyncing(true);
     try {
       const result = await syncPending();
@@ -28,7 +30,7 @@ export function OfflineIndicator() {
       setSyncing(false);
       await refresh();
     }
-  }, [refresh, router]);
+  }, [refresh, router, syncing]);
 
   useEffect(() => {
     setOnline(navigator.onLine);
@@ -39,23 +41,30 @@ export function OfflineIndicator() {
       void runSync();
     };
     const onOffline = () => setOnline(false);
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && navigator.onLine) void runSync();
+    };
 
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
-    // Also listen for queue changes dispatched by the purchase form.
     window.addEventListener("copra:queued", refresh);
+    document.addEventListener("visibilitychange", onVisible);
 
-    // Attempt a sync on mount in case items are queued.
     if (navigator.onLine) void runSync();
+    const interval = setInterval(() => {
+      void refresh();
+      if (navigator.onLine) void runSync();
+    }, 20000);
 
-    const interval = setInterval(refresh, 15000);
     return () => {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("copra:queued", refresh);
+      document.removeEventListener("visibilitychange", onVisible);
       clearInterval(interval);
     };
-  }, [refresh, runSync]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (online && pending === 0) {
     return (
@@ -65,21 +74,20 @@ export function OfflineIndicator() {
     );
   }
 
-  if (!online) {
+  if (pending > 0) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-        ● Offline{pending > 0 ? ` · ${pending} unsynced` : ""}
-      </span>
+      <Link
+        href="/purchases/pending"
+        className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800"
+      >
+        {syncing ? "Syncing…" : `${pending} unsynced`}
+      </Link>
     );
   }
 
-  // online with pending items
   return (
-    <button
-      onClick={runSync}
-      className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800"
-    >
-      {syncing ? "Syncing…" : `${pending} unsynced · tap to sync`}
-    </button>
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+      ● Offline
+    </span>
   );
 }

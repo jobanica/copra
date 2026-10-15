@@ -58,9 +58,10 @@ export default async function AccountingPage() {
         action={<LinkButton href="/accounting/journal">Journal</LinkButton>}
       />
 
-      <div className="grid grid-cols-2 gap-3">
-        <LinkButton href="/accounting/chart" variant="secondary">Chart of accounts</LinkButton>
-        <LinkButton href="/accounting/manual" variant="secondary">Manual entry</LinkButton>
+      <div className="grid grid-cols-3 gap-3">
+        <LinkButton href="/accounting/reports" variant="primary">Reports</LinkButton>
+        <LinkButton href="/accounting/chart" variant="secondary">Chart</LinkButton>
+        <LinkButton href="/accounting/manual" variant="secondary">Manual JE</LinkButton>
       </div>
 
       {/* Income statement */}
