@@ -4,7 +4,7 @@ import { getSessionProfile, isOwner } from "@/lib/auth";
 import { PageHeader, Card, Field, Input, EmptyState, Badge } from "@/components/ui";
 import { ActionForm } from "@/components/ActionForm";
 import { SubmitButton } from "@/components/SubmitButton";
-import { updateSettings, updateBusiness, addGrade } from "./actions";
+import { updateSettings, updateBusiness, addGrade, clearTransactions } from "./actions";
 import { formatPeso } from "@/lib/money";
 import type { Business, BusinessSettings, Grade, Profile } from "@/types/db";
 
@@ -111,6 +111,26 @@ export default async function SettingsPage() {
           To add the cashier, have them create an account on the sign-in screen.
           The first account is the owner; the next becomes a cashier.
         </p>
+      </Card>
+
+      <Card className="border-red-200">
+        <h2 className="mb-1 font-semibold text-red-700">Danger zone</h2>
+        <p className="mb-2 text-sm text-gray-600">
+          <strong>Clear all transactions.</strong> Permanently deletes every
+          purchase, sale, utang entry, expense, cash day, stock count and
+          journal entry for this business, and restarts receipt numbering at #1.
+        </p>
+        <p className="mb-3 text-sm text-gray-500">
+          Your farmers, buyers, prices, grades, accounts and settings are kept.
+          This cannot be undone — use it to clear test data or shrink the
+          database. Export any reports you need first.
+        </p>
+        <ActionForm action={clearTransactions} className="space-y-3">
+          <Field label='Type DELETE to confirm'>
+            <Input name="confirm" placeholder="DELETE" autoComplete="off" />
+          </Field>
+          <SubmitButton variant="danger">Clear all transactions</SubmitButton>
+        </ActionForm>
       </Card>
     </div>
   );

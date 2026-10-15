@@ -57,6 +57,30 @@ export async function updateBusiness(
   return { message: "Business details saved." };
 }
 
+export async function clearTransactions(
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getSessionProfile();
+  if (!session || !isOwner(session.profile)) return { error: "Owner only." };
+
+  const confirm = String(formData.get("confirm") || "").trim();
+  if (confirm !== "DELETE") {
+    return { error: 'Type DELETE (in capitals) to confirm.' };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("reset_business_transactions");
+  if (error) return { error: error.message };
+
+  // Everything derived from transactions changes — refresh the whole app.
+  revalidatePath("/", "layout");
+  return {
+    message:
+      "All transactions cleared. Receipt numbering restarts at #1 and stock is zeroed. Farmers, prices and settings were kept.",
+  };
+}
+
 export async function addGrade(
   _state: ActionState,
   formData: FormData,
