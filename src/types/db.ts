@@ -125,6 +125,16 @@ export interface Purchase {
   voided_at: string | null;
 }
 
+export interface PurchaseWeighing {
+  id: string;
+  business_id: string;
+  purchase_id: string;
+  seq: number;
+  sack_count: number;
+  weight_kg: number;
+  created_at: string;
+}
+
 export interface FarmerBalanceView {
   farmer_id: string;
   business_id: string;

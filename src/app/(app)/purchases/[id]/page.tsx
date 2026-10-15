@@ -17,6 +17,7 @@ import type {
   FarmerBalanceView,
   Business,
   BusinessSettings,
+  PurchaseWeighing,
 } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -39,15 +40,27 @@ export default async function PurchaseDetailPage({
   if (!purchaseData) notFound();
   const p = purchaseData as Purchase;
 
-  const [{ data: farmerData }, { data: balData }, { data: biz }, { data: settings }] =
-    await Promise.all([
-      supabase.from("farmers").select("*").eq("id", p.farmer_id).maybeSingle(),
-      supabase.from("v_farmer_balances").select("*").eq("farmer_id", p.farmer_id).maybeSingle(),
-      supabase.from("businesses").select("*").limit(1).maybeSingle(),
-      supabase.from("business_settings").select("*").limit(1).maybeSingle(),
-    ]);
+  const [
+    { data: farmerData },
+    { data: balData },
+    { data: biz },
+    { data: settings },
+    { data: weighingData },
+  ] = await Promise.all([
+    supabase.from("farmers").select("*").eq("id", p.farmer_id).maybeSingle(),
+    supabase.from("v_farmer_balances").select("*").eq("farmer_id", p.farmer_id).maybeSingle(),
+    supabase.from("businesses").select("*").limit(1).maybeSingle(),
+    supabase.from("business_settings").select("*").limit(1).maybeSingle(),
+    supabase
+      .from("purchase_weighings")
+      .select("*")
+      .eq("purchase_id", id)
+      .order("seq", { ascending: true }),
+  ]);
 
   const farmer = farmerData as Farmer | null;
+  const weighings = (weighingData ?? []) as PurchaseWeighing[];
+  const receiptWeighings = weighings.map((w) => ({ sacks: w.sack_count, kg: w.weight_kg }));
   const currentBalance = (balData as FarmerBalanceView | null)?.balance_centavos ?? 0;
   const business = biz as Business | null;
   const header = (settings as BusinessSettings | null)?.receipt_header ?? {};
@@ -62,6 +75,8 @@ export default async function PurchaseDetailPage({
     purchasedAt: p.purchased_at,
     farmerName: farmer?.name ?? "Farmer",
     barangay: farmer?.barangay ?? null,
+    weighings: receiptWeighings,
+    sackCount: p.sack_count,
     grossKg: p.gross_kg,
     tareKg: p.tare_kg,
     deductionKg: p.deduction_kg,
@@ -104,7 +119,30 @@ export default async function PurchaseDetailPage({
         </Card>
       )}
 
+      {weighings.length > 0 && (
+        <Card>
+          <h2 className="mb-2 text-sm font-semibold text-gray-700">
+            Weighings ({p.sack_count} sack{p.sack_count === 1 ? "" : "s"})
+          </h2>
+          <div className="divide-y divide-gray-100">
+            {weighings.map((w) => (
+              <div key={w.id} className="flex justify-between py-1 text-sm">
+                <span className="text-gray-500">
+                  #{w.seq} · {w.sack_count} sack{w.sack_count === 1 ? "" : "s"}
+                </span>
+                <span className="font-medium">{formatKg(w.weight_kg, false)} kg</span>
+              </div>
+            ))}
+            <div className="flex justify-between py-1 text-sm">
+              <span className="font-semibold">Total gross</span>
+              <span className="font-semibold">{formatKg(p.gross_kg)}</span>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card>
+        {p.sack_count > 0 && <Row label="Sacks" value={String(p.sack_count)} />}
         <Row label="Gross" value={formatKg(p.gross_kg)} />
         <Row label="Tare (sacks)" value={`-${formatKg(p.tare_kg, false)}`} />
         <Row

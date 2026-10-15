@@ -3,6 +3,11 @@ import { formatPeso } from "@/lib/money";
 import { formatKg } from "@/lib/weight";
 import { formatDateTime } from "@/lib/format";
 
+export interface ReceiptWeighing {
+  sacks: number;
+  kg: number;
+}
+
 export interface ReceiptData {
   businessName: string;
   businessAddress?: string;
@@ -11,6 +16,8 @@ export interface ReceiptData {
   purchasedAt: string;
   farmerName: string;
   barangay?: string | null;
+  weighings?: ReceiptWeighing[];
+  sackCount?: number;
   grossKg: number;
   tareKg: number;
   deductionKg: number;
@@ -56,6 +63,21 @@ function divider(ch = "-"): string {
   return ch.repeat(WIDTH) + "\n";
 }
 
+/** Per-weighing (batch of sacks) breakdown, or "" when there is none. */
+function weighingsText(d: ReceiptData): string {
+  const ws = d.weighings ?? [];
+  if (ws.length === 0) return "";
+  let out = "WEIGHINGS\n";
+  let totalSacks = 0;
+  ws.forEach((w, i) => {
+    totalSacks += w.sacks || 0;
+    out += row(`#${i + 1}  ${w.sacks || 0} sack${(w.sacks || 0) === 1 ? "" : "s"}`, formatKg(w.kg, false));
+  });
+  out += row(`Total: ${totalSacks} sack${totalSacks === 1 ? "" : "s"}`, formatKg(d.grossKg, false));
+  out += divider();
+  return out;
+}
+
 /** Build the full receipt as human-readable text (used for preview + fallback). */
 export function receiptText(d: ReceiptData): string {
   let out = "";
@@ -67,6 +89,8 @@ export function receiptText(d: ReceiptData): string {
   out += row("Farmer", d.farmerName);
   if (d.barangay) out += row("Barangay", d.barangay);
   out += divider();
+  out += weighingsText(d);
+  if (d.sackCount && d.sackCount > 0) out += row("Sacks", String(d.sackCount));
   out += row("Gross", formatKg(d.grossKg));
   out += row("Tare (sacks)", `-${formatKg(d.tareKg, false)}`);
   out += row(
@@ -114,6 +138,8 @@ export function encodeReceipt(d: ReceiptData): Uint8Array {
   bytes.push(...text(row("Farmer", d.farmerName)));
   if (d.barangay) bytes.push(...text(row("Barangay", d.barangay)));
   bytes.push(...text(divider()));
+  bytes.push(...text(weighingsText(d)));
+  if (d.sackCount && d.sackCount > 0) bytes.push(...text(row("Sacks", String(d.sackCount))));
   bytes.push(...text(row("Gross", formatKg(d.grossKg))));
   bytes.push(...text(row("Tare (sacks)", `-${formatKg(d.tareKg, false)}`)));
   bytes.push(

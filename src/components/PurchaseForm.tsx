@@ -46,8 +46,9 @@ export function PurchaseForm({
 
   const [farmerId, setFarmerId] = useState(farmers[0]?.id ?? "");
   const [gradeId, setGradeId] = useState(grades[0]?.id ?? "");
-  const [sackCount, setSackCount] = useState("");
-  const [gross, setGross] = useState("");
+  const [weighings, setWeighings] = useState<{ sacks: string; kg: string }[]>([
+    { sacks: "", kg: "" },
+  ]);
   const [tare, setTare] = useState("");
   const [dedMode, setDedMode] = useState<"pct" | "kg">("pct");
   const [dedValue, setDedValue] = useState("");
@@ -64,8 +65,18 @@ export function PurchaseForm({
   const farmer = farmers.find((f) => f.id === farmerId) ?? null;
   const balance = farmer?.balance_centavos ?? 0;
 
+  const totals = useMemo(() => {
+    let sacks = 0;
+    let gross = 0;
+    for (const w of weighings) {
+      sacks += parseInt(w.sacks) || 0;
+      gross += parseFloat(w.kg) || 0;
+    }
+    return { sacks, gross: Math.round(gross * 100) / 100 };
+  }, [weighings]);
+
   const calc = useMemo(() => {
-    const g = parseFloat(gross) || 0;
+    const g = totals.gross;
     const t = parseFloat(tare) || 0;
     const dv = parseFloat(dedValue) || 0;
     const dedKg = dedMode === "pct" ? deductionKgFromPct(g, t, dv) : dv;
@@ -83,10 +94,19 @@ export function PurchaseForm({
     );
     const cashPaid = grossAmt - utangCentavos;
     return { dedKg, dedPct, net, grossAmt, utangCentavos, cashPaid };
-  }, [gross, tare, dedValue, dedMode, utang, price, balance]);
+  }, [totals.gross, tare, dedValue, dedMode, utang, price, balance]);
 
-  const canSubmit =
-    price !== null && farmerId !== "" && (parseFloat(gross) || 0) > 0 && !busy;
+  function setWeighing(i: number, field: "sacks" | "kg", value: string) {
+    setWeighings((ws) => ws.map((w, j) => (j === i ? { ...w, [field]: value } : w)));
+  }
+  function addWeighing() {
+    setWeighings((ws) => [...ws, { sacks: "", kg: "" }]);
+  }
+  function removeWeighing(i: number) {
+    setWeighings((ws) => (ws.length <= 1 ? ws : ws.filter((_, j) => j !== i)));
+  }
+
+  const canSubmit = price !== null && farmerId !== "" && totals.gross > 0 && !busy;
 
   async function submit() {
     if (!farmer || price === null) return;
@@ -95,12 +115,16 @@ export function PurchaseForm({
 
     const clientUuid = crypto.randomUUID();
     const purchasedAt = new Date().toISOString();
+    const weighingInputs = weighings
+      .map((w) => ({ sacks: parseInt(w.sacks) || 0, kg: parseFloat(w.kg) || 0 }))
+      .filter((w) => w.sacks > 0 || w.kg > 0);
     const payload: PurchasePayload = {
       p_farmer_id: farmerId,
       p_grade_id: grades.length > 0 ? gradeId : null,
       p_purchased_at: purchasedAt,
-      p_sack_count: parseInt(sackCount) || 0,
-      p_gross_kg: parseFloat(gross) || 0,
+      p_sack_count: totals.sacks,
+      p_gross_kg: totals.gross,
+      p_weighings: weighingInputs.length > 0 ? weighingInputs : null,
       p_tare_kg: parseFloat(tare) || 0,
       p_deduction_kg: calc.dedKg,
       p_deduction_pct: calc.dedPct,
@@ -118,6 +142,8 @@ export function PurchaseForm({
       purchasedAt,
       farmerName: farmer.name,
       barangay: farmer.barangay,
+      weighings: weighingInputs,
+      sackCount: totals.sacks,
       grossKg: payload.p_gross_kg,
       tareKg: payload.p_tare_kg,
       deductionKg: calc.dedKg,
@@ -170,8 +196,7 @@ export function PurchaseForm({
   function resetForm() {
     setReceipt(null);
     setSavedOffline(false);
-    setSackCount("");
-    setGross("");
+    setWeighings([{ sacks: "", kg: "" }]);
     setTare("");
     setDedValue("");
     setUtang("");
@@ -267,25 +292,67 @@ export function PurchaseForm({
           Price today: <strong>{formatPeso(price)}/kg</strong>
         </div>
 
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">
+              Weighings (per batch of sacks)
+            </label>
+            <span className="text-xs text-gray-400">
+              {totals.sacks} sack{totals.sacks === 1 ? "" : "s"} · {formatKg(totals.gross)}
+            </span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1 text-xs text-gray-400">
+              <span className="w-6 shrink-0" />
+              <span className="flex-1">Sacks</span>
+              <span className="flex-[1.4]">Weight (kg)</span>
+              <span className="w-8 shrink-0" />
+            </div>
+            {weighings.map((w, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-6 shrink-0 text-center text-sm font-semibold text-gray-400">
+                  {i + 1}
+                </span>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="0"
+                  className="flex-1"
+                  value={w.sacks}
+                  onChange={(e) => setWeighing(i, "sacks", e.target.value)}
+                />
+                <Input
+                  type="number"
+                  step="0.01"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  className="flex-[1.4]"
+                  value={w.kg}
+                  onChange={(e) => setWeighing(i, "kg", e.target.value)}
+                  autoFocus={i === 0}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeWeighing(i)}
+                  disabled={weighings.length <= 1}
+                  aria-label="Remove weighing"
+                  className="grid h-9 w-8 shrink-0 place-items-center rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-30"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addWeighing}
+            className="btn-secondary mt-2 w-full py-2 text-sm"
+          >
+            ＋ Add weighing
+          </button>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Sacks">
-            <Input
-              type="number"
-              inputMode="numeric"
-              value={sackCount}
-              onChange={(e) => setSackCount(e.target.value)}
-            />
-          </Field>
-          <Field label="Gross kg">
-            <Input
-              type="number"
-              step="0.01"
-              inputMode="decimal"
-              value={gross}
-              onChange={(e) => setGross(e.target.value)}
-              autoFocus
-            />
-          </Field>
           <Field label="Tare kg (sacks)">
             <Input
               type="number"
@@ -317,6 +384,10 @@ export function PurchaseForm({
       </Card>
 
       <Card className="space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-500">Gross weight ({totals.sacks} sacks)</span>
+          <span>{formatKg(totals.gross)}</span>
+        </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-500">Deduction</span>
           <span>

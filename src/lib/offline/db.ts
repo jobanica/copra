@@ -2,12 +2,18 @@
 
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 
+export interface WeighingInput {
+  sacks: number;
+  kg: number;
+}
+
 export interface PurchasePayload {
   p_farmer_id: string;
   p_grade_id: string | null;
   p_purchased_at: string;
   p_sack_count: number;
   p_gross_kg: number;
+  p_weighings: WeighingInput[] | null;
   p_tare_kg: number;
   p_deduction_kg: number;
   p_deduction_pct: number;
