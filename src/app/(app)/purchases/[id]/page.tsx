@@ -69,8 +69,8 @@ export default async function PurchaseDetailPage({
   // Best-effort reconstruction for reprint: remaining = current balance,
   // previous = remaining + what this receipt deducted.
   const receipt: ReceiptData = {
-    businessName: (header["business_name"] as string) || business?.name || "CopraBooks",
-    businessAddress: (header["address"] as string) || business?.address || undefined,
+    businessName: business?.name || (header["business_name"] as string) || "CopraBooks",
+    businessAddress: business?.address || (header["address"] as string) || undefined,
     footer: (header["footer"] as string) || undefined,
     receiptNo: p.receipt_no,
     purchasedAt: p.purchased_at,

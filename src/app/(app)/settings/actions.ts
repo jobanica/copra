@@ -45,6 +45,7 @@ export async function updateBusiness(
   if (!session || !isOwner(session.profile)) return { error: "Owner only." };
   const name = String(formData.get("name") || "").trim();
   const address = String(formData.get("address") || "").trim();
+  const footer = String(formData.get("footer") || "").trim();
   if (!name) return { error: "Business name is required." };
 
   const supabase = await createClient();
@@ -53,7 +54,26 @@ export async function updateBusiness(
     .update({ name, address: address || null })
     .eq("id", session.profile.business_id);
   if (error) return { error: error.message };
-  revalidatePath("/settings");
+
+  // Keep the receipt header in sync with the business details, so printed
+  // receipts always show the current name/address (and an optional footer).
+  const { data: s } = await supabase
+    .from("business_settings")
+    .select("receipt_header")
+    .eq("business_id", session.profile.business_id)
+    .maybeSingle();
+  const header = {
+    ...((s?.receipt_header as Record<string, unknown> | null) ?? {}),
+    business_name: name,
+    address: address || null,
+    footer: footer || null,
+  };
+  await supabase
+    .from("business_settings")
+    .update({ receipt_header: header, updated_at: new Date().toISOString() })
+    .eq("business_id", session.profile.business_id);
+
+  revalidatePath("/", "layout");
   return { message: "Business details saved." };
 }
 

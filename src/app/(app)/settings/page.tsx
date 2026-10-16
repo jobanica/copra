@@ -39,8 +39,14 @@ export default async function SettingsPage() {
           <Field label="Name">
             <Input name="name" defaultValue={business?.name ?? ""} required />
           </Field>
-          <Field label="Address">
+          <Field label="Address" hint="Shown under the name on printed receipts.">
             <Input name="address" defaultValue={business?.address ?? ""} />
+          </Field>
+          <Field label="Receipt footer" hint="Optional line at the bottom of receipts (e.g. “Salamat po!”).">
+            <Input
+              name="footer"
+              defaultValue={(s?.receipt_header?.["footer"] as string) ?? ""}
+            />
           </Field>
           <SubmitButton>Save business</SubmitButton>
         </ActionForm>

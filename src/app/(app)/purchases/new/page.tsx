@@ -46,8 +46,8 @@ export default async function NewPurchasePage() {
   const business = biz as Business | null;
   const header = (settings as BusinessSettings | null)?.receipt_header ?? {};
   const businessInfo = {
-    name: (header["business_name"] as string) || business?.name || "CopraBooks",
-    address: (header["address"] as string) || business?.address || undefined,
+    name: business?.name || (header["business_name"] as string) || "CopraBooks",
+    address: business?.address || (header["address"] as string) || undefined,
     footer: (header["footer"] as string) || undefined,
   };
 

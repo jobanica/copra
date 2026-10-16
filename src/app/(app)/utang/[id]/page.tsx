@@ -78,8 +78,8 @@ export default async function AdvanceReceiptPage({
   const business = biz as Business | null;
   const header = (settings as BusinessSettings | null)?.receipt_header ?? {};
   const data: AdvanceReceiptData = {
-    businessName: (header["business_name"] as string) || business?.name || "CopraBooks",
-    businessAddress: (header["address"] as string) || business?.address || undefined,
+    businessName: business?.name || (header["business_name"] as string) || "CopraBooks",
+    businessAddress: business?.address || (header["address"] as string) || undefined,
     footer: (header["footer"] as string) || undefined,
     farmerName: farmer.name,
     barangay: farmer.barangay,
