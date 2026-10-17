@@ -38,7 +38,9 @@ export function SaleForm({
     const bg = parseFloat(buyerGross) || 0;
     const bd = parseFloat(buyerDed) || 0;
     const buyerNet = bg > 0 ? Math.round(bg * (1 - bd / 100) * 100) / 100 : 0;
-    const suggestedAmount = Math.round(buyerNet * (parseFloat(price) || 0) * 100);
+    // The buyer pays for their accepted net kg when given, else our loaded kg.
+    const payQty = buyerNet > 0 ? buyerNet : l;
+    const suggestedAmount = Math.round(payQty * (parseFloat(price) || 0) * 100);
     const cogs = Math.round(l * avgCostCentavos);
     const shrinkKg = Math.max(0, Math.round((b - l) * 100) / 100);
     const amountC =
@@ -46,7 +48,7 @@ export function SaleForm({
         ? Math.round((parseFloat(amount) || 0) * 100)
         : suggestedAmount;
     const grossProfit = amountC - cogs;
-    return { l, b, buyerNet, suggestedAmount, cogs, shrinkKg, amountC, grossProfit };
+    return { l, b, buyerNet, payQty, suggestedAmount, cogs, shrinkKg, amountC, grossProfit };
   }, [loaded, book, buyerGross, buyerDed, price, amount, avgCostCentavos]);
 
   const overStock = calc.b > stockOnHandKg;
@@ -168,18 +170,27 @@ export function SaleForm({
               onChange={(e) => setPrice(e.target.value)}
             />
           </Field>
-          <Field label="Amount received (₱)" hint={`Suggested ${formatPeso(calc.suggestedAmount)}`}>
+          <Field
+            label="Amount received (₱)"
+            hint={`Leave blank to use ${formatPeso(calc.suggestedAmount)} (price × kg)`}
+          >
             <Input
               type="number"
               step="0.01"
               inputMode="decimal"
-              name="amount_received"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder={(calc.suggestedAmount / 100).toFixed(2)}
             />
           </Field>
         </div>
+        {/* Always submit an effective amount: the override if typed, else the
+            price × kg suggestion. Prevents saving ₱0 when left blank. */}
+        <input
+          type="hidden"
+          name="amount_received"
+          value={(calc.amountC / 100).toFixed(2)}
+        />
       </Card>
 
       <Card className="space-y-3">
