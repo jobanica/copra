@@ -11,7 +11,14 @@ import type {
   DashboardTodayView,
   BuyingPrice,
   BuyerReferencePrice,
+  CashBalanceRow,
 } from "@/types/db";
+
+const CASH_ICON: Record<string, string> = {
+  cash_on_hand: "💵",
+  bank: "🏦",
+  gcash: "📱",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -146,11 +153,18 @@ export default async function DashboardPage({
   const farmerName = new Map(
     ((farmers ?? []) as { id: string; name: string }[]).map((f) => [f.id, f.name]),
   );
+  const cashRows = (cashBal ?? []) as CashBalanceRow[];
   const cashOnHand =
-    ((cashBal ?? []) as { type: string; balance_centavos: number }[]).find(
-      (c) => c.type === "cash_on_hand",
-    )?.balance_centavos ?? 0;
+    cashRows.find((c) => c.type === "cash_on_hand")?.balance_centavos ?? 0;
   const expectedDrawer = (expected as number | null) ?? cashOnHand;
+
+  // Working capital = all cash (cash on hand + bank + gcash) + utang
+  // receivable + stock on hand valued at cost.
+  const totalCash = cashRows.reduce((s, c) => s + Number(c.balance_centavos), 0);
+  const utangOut = d?.total_utang_outstanding_centavos ?? 0;
+  const stockValue = d?.stock_value_centavos ?? 0;
+  const stockKg = d?.stock_on_hand_kg ?? 0;
+  const workingCapital = totalCash + utangOut + stockValue;
   const totalExpenses = ((expenseRows ?? []) as { amount_centavos: number }[]).reduce(
     (sum, e) => sum + Number(e.amount_centavos),
     0,
@@ -239,6 +253,43 @@ export default async function DashboardPage({
           </>
         )}
       </div>
+
+      {/* Working capital (owner) */}
+      {isOwner && (
+        <Card className="bg-gradient-to-br from-brand-50 to-white">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold">Total working capital</h2>
+              <p className="text-xs text-gray-500">Cash + bank + GCash + utang + stock at cost</p>
+            </div>
+            <span className="text-2xl font-bold tabular-nums text-brand-700 sm:text-3xl">
+              {formatPeso(workingCapital)}
+            </span>
+          </div>
+          <div className="divide-y divide-gray-100 text-sm">
+            {cashRows.map((c) => (
+              <div key={c.cash_account_id} className="flex items-center justify-between py-1.5">
+                <span className="text-gray-500">
+                  {CASH_ICON[c.type] ?? "💵"} {c.name}
+                </span>
+                <span className="font-medium tabular-nums">{formatPeso(c.balance_centavos)}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-gray-500">🧾 Utang receivable</span>
+              <span className="font-medium tabular-nums">{formatPeso(utangOut)}</span>
+            </div>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-gray-500">📦 Stock at cost · {formatKg(stockKg)}</span>
+              <span className="font-medium tabular-nums">{formatPeso(stockValue)}</span>
+            </div>
+            <div className="flex items-center justify-between py-2 text-base font-bold">
+              <span>Overall total</span>
+              <span className="tabular-nums text-brand-700">{formatPeso(workingCapital)}</span>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Summary chart */}
       <Card>
