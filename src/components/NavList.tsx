@@ -14,6 +14,7 @@ const base = [
   { href: "/stock", label: "Stock", icon: "🏬" },
   { href: "/prices", label: "Prices", icon: "🏷️" },
 ];
+const payables = { href: "/payables", label: "Payables", icon: "💳" };
 const ownerExtra = [
   { href: "/sales", label: "Sales", icon: "🚚" },
   { href: "/accounting", label: "Books", icon: "📘" },
@@ -24,7 +25,8 @@ export function linksFor(role: UserRole) {
   return role === "owner"
     ? [
         ...base.slice(0, 4),
-        ownerExtra[0], // Sales after Utang
+        payables, // after Utang (receivables)
+        ownerExtra[0], // Sales
         ...base.slice(4),
         ownerExtra[1], // Books
         ownerExtra[2], // Settings

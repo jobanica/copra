@@ -114,6 +114,7 @@ export default async function DashboardPage({
     { data: purchases },
     { data: farmers },
     { data: expenseRows },
+    { data: payableRows },
   ] = await Promise.all([
     supabase.from("v_dashboard_today").select("*").maybeSingle(),
     supabase
@@ -143,6 +144,7 @@ export default async function DashboardPage({
       .eq("status", "posted")
       .gte("expense_date", from)
       .lte("expense_date", to),
+    supabase.from("v_payable_balances").select("balance_centavos,status").eq("status", "open"),
   ]);
 
   const d = (dash ?? null) as DashboardTodayView | null;
@@ -164,7 +166,12 @@ export default async function DashboardPage({
   const utangOut = d?.total_utang_outstanding_centavos ?? 0;
   const stockValue = d?.stock_value_centavos ?? 0;
   const stockKg = d?.stock_on_hand_kg ?? 0;
-  const workingCapital = totalCash + utangOut + stockValue;
+  const totalPayable = ((payableRows ?? []) as { balance_centavos: number }[]).reduce(
+    (s, r) => s + Number(r.balance_centavos),
+    0,
+  );
+  const assetsTotal = totalCash + utangOut + stockValue;
+  const workingCapital = assetsTotal - totalPayable;
   const totalExpenses = ((expenseRows ?? []) as { amount_centavos: number }[]).reduce(
     (sum, e) => sum + Number(e.amount_centavos),
     0,
@@ -245,6 +252,7 @@ export default async function DashboardPage({
             <Kpi tone="blue" label="Stock on hand" value={formatKg(d?.stock_on_hand_kg ?? 0)} hint={`Cost ${formatPeso(d?.stock_value_centavos ?? 0)}`} />
             <Kpi tone="violet" label="Gross profit (month)" value={formatPeso(d?.month_gross_profit_centavos ?? 0)} hint={marginPerKg !== null ? `Margin ${formatPeso(marginPerKg)}/kg` : undefined} />
             <Kpi tone="amber" label="Total utang out" value={formatPeso(d?.total_utang_outstanding_centavos ?? 0)} />
+            <Kpi tone="rose" label="Total payable" value={formatPeso(totalPayable)} hint="we owe" />
           </>
         ) : (
           <>
@@ -260,7 +268,7 @@ export default async function DashboardPage({
           <div className="mb-3 flex items-center justify-between">
             <div>
               <h2 className="font-semibold">Total working capital</h2>
-              <p className="text-xs text-gray-500">Cash + bank + GCash + utang + stock at cost</p>
+              <p className="text-xs text-gray-500">Cash + bank + GCash + utang + stock − payable</p>
             </div>
             <span className="text-2xl font-bold tabular-nums text-brand-700 sm:text-3xl">
               {formatPeso(workingCapital)}
@@ -283,8 +291,18 @@ export default async function DashboardPage({
               <span className="text-gray-500">📦 Stock at cost · {formatKg(stockKg)}</span>
               <span className="font-medium tabular-nums">{formatPeso(stockValue)}</span>
             </div>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="font-medium">Assets subtotal</span>
+              <span className="font-medium tabular-nums">{formatPeso(assetsTotal)}</span>
+            </div>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-gray-500">💳 Less: Payable</span>
+              <span className="font-medium tabular-nums text-red-600">
+                −{formatPeso(totalPayable, false)}
+              </span>
+            </div>
             <div className="flex items-center justify-between py-2 text-base font-bold">
-              <span>Overall total</span>
+              <span>Net working capital</span>
               <span className="tabular-nums text-brand-700">{formatPeso(workingCapital)}</span>
             </div>
           </div>

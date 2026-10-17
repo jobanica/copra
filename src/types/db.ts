@@ -474,6 +474,37 @@ export interface PlSummaryView {
   balance_centavos: number;
 }
 
+export type PayableStatus = "open" | "paid" | "void";
+
+export interface Payable {
+  id: string;
+  business_id: string;
+  payee: string;
+  category: string | null;
+  amount_centavos: number;
+  offset_account_id: string;
+  incurred_date: string;
+  due_date: string | null;
+  remarks: string | null;
+  status: PayableStatus;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PayableBalanceView {
+  payable_id: string;
+  business_id: string;
+  payee: string;
+  category: string | null;
+  amount_centavos: number;
+  incurred_date: string;
+  due_date: string | null;
+  remarks: string | null;
+  status: PayableStatus;
+  paid_centavos: number;
+  balance_centavos: number;
+}
+
 /** Result row of the cash_balances() RPC. */
 export interface CashBalanceRow {
   cash_account_id: string;
