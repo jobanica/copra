@@ -11,6 +11,30 @@ function peso(v: FormDataEntryValue | null): number {
   return pesosToCentavos(Number(v) || 0);
 }
 
+export async function adjustCashBalance(
+  _state: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await getSessionProfile();
+  if (!session || !isOwner(session.profile)) return { error: "Owner only." };
+  const id = String(formData.get("cash_account_id") || "");
+  const newBalance = Number(formData.get("new_balance"));
+  if (!id) return { error: "Missing account." };
+  if (!Number.isFinite(newBalance) || newBalance < 0) {
+    return { error: "Enter a valid balance." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("adjust_cash_balance", {
+    p_cash_account_id: id,
+    p_new_balance_centavos: pesosToCentavos(newBalance),
+    p_remarks: String(formData.get("remarks") || "") || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/cash");
+  revalidatePath("/", "layout");
+  return { message: "Cash balance corrected." };
+}
+
 export async function deleteExpense(formData: FormData): Promise<void> {
   const session = await getSessionProfile();
   if (!session || !isOwner(session.profile)) return;

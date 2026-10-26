@@ -5,7 +5,7 @@ import { PageHeader, Card, StatCard, Field, Input, Select, Badge, EmptyState, Li
 import { ActionForm } from "@/components/ActionForm";
 import { SubmitButton } from "@/components/SubmitButton";
 import { DeleteButton } from "@/components/DeleteButton";
-import { openDay, recordCount, closeDay, recordEquity, deleteExpense } from "./actions";
+import { openDay, recordCount, closeDay, recordEquity, deleteExpense, adjustCashBalance } from "./actions";
 import { formatPeso } from "@/lib/money";
 import { formatDate, manilaToday } from "@/lib/format";
 import type {
@@ -102,6 +102,40 @@ export default async function CashPage() {
           />
         ))}
       </div>
+
+      {owner && (
+        <Card>
+          <h2 className="mb-1 font-semibold">Correct a balance</h2>
+          <p className="mb-3 text-sm text-gray-500">
+            Set the real amount in an account. The difference is booked as a
+            capital correction so the books stay balanced.
+          </p>
+          <div className="space-y-3">
+            {balanceRows.map((b) => (
+              <ActionForm
+                key={b.cash_account_id}
+                action={adjustCashBalance}
+                className="flex flex-wrap items-end gap-2"
+              >
+                <input type="hidden" name="cash_account_id" value={b.cash_account_id} />
+                <div className="min-w-[8rem] flex-1">
+                  <Field label={`${CASH_ICON[b.type] ?? ""} ${b.name}`} hint={`Now ${formatPeso(b.balance_centavos)}`}>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputMode="decimal"
+                      name="new_balance"
+                      defaultValue={(b.balance_centavos / 100).toFixed(2)}
+                    />
+                  </Field>
+                </div>
+                <SubmitButton variant="secondary">Set</SubmitButton>
+              </ActionForm>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Cash day cycle */}
       <Card>
