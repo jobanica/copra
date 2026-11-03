@@ -115,6 +115,7 @@ export default async function DashboardPage({
     { data: farmers },
     { data: expenseRows },
     { data: payableRows },
+    { data: invStates },
   ] = await Promise.all([
     supabase.from("v_dashboard_today").select("*").maybeSingle(),
     supabase
@@ -145,6 +146,7 @@ export default async function DashboardPage({
       .gte("expense_date", from)
       .lte("expense_date", to),
     supabase.from("v_payable_balances").select("balance_centavos,status").eq("status", "open"),
+    supabase.from("inventory_state").select("product,qty_on_hand_kg,total_value_centavos"),
   ]);
 
   const d = (dash ?? null) as DashboardTodayView | null;
@@ -165,7 +167,17 @@ export default async function DashboardPage({
   const totalCash = cashRows.reduce((s, c) => s + Number(c.balance_centavos), 0);
   const utangOut = d?.total_utang_outstanding_centavos ?? 0;
   const stockValue = d?.stock_value_centavos ?? 0;
-  const stockKg = d?.stock_on_hand_kg ?? 0;
+  const invRows = (invStates ?? []) as {
+    product: string;
+    qty_on_hand_kg: number;
+    total_value_centavos: number;
+  }[];
+  const stockOf = (prod: string) => {
+    const r = invRows.find((x) => x.product === prod);
+    return { kg: Number(r?.qty_on_hand_kg ?? 0), value: Number(r?.total_value_centavos ?? 0) };
+  };
+  const copraStock = stockOf("copra");
+  const charcoalStock = stockOf("charcoal");
   const totalPayable = ((payableRows ?? []) as { balance_centavos: number }[]).reduce(
     (s, r) => s + Number(r.balance_centavos),
     0,
@@ -249,7 +261,8 @@ export default async function DashboardPage({
         <Kpi tone="rose" label="Total expenses" value={formatPeso(totalExpenses)} hint={rangeLabel} />
         {isOwner ? (
           <>
-            <Kpi tone="blue" label="Stock on hand" value={formatKg(d?.stock_on_hand_kg ?? 0)} hint={`Cost ${formatPeso(d?.stock_value_centavos ?? 0)}`} />
+            <Kpi tone="blue" label="Copra stock" value={formatKg(copraStock.kg)} hint={`Cost ${formatPeso(copraStock.value)}`} />
+            <Kpi tone="violet" label="Charcoal stock" value={formatKg(charcoalStock.kg)} hint={`Cost ${formatPeso(charcoalStock.value)}`} />
             <Kpi tone="violet" label="Gross profit (month)" value={formatPeso(d?.month_gross_profit_centavos ?? 0)} hint={marginPerKg !== null ? `Margin ${formatPeso(marginPerKg)}/kg` : undefined} />
             <Kpi tone="amber" label="Total utang out" value={formatPeso(d?.total_utang_outstanding_centavos ?? 0)} />
             <Kpi tone="rose" label="Total payable" value={formatPeso(totalPayable)} hint="we owe" />
@@ -288,8 +301,12 @@ export default async function DashboardPage({
               <span className="font-medium tabular-nums">{formatPeso(utangOut)}</span>
             </div>
             <div className="flex items-center justify-between py-1.5">
-              <span className="text-gray-500">📦 Stock at cost · {formatKg(stockKg)}</span>
-              <span className="font-medium tabular-nums">{formatPeso(stockValue)}</span>
+              <span className="text-gray-500">📦 Copra stock · {formatKg(copraStock.kg)}</span>
+              <span className="font-medium tabular-nums">{formatPeso(copraStock.value)}</span>
+            </div>
+            <div className="flex items-center justify-between py-1.5">
+              <span className="text-gray-500">🔥 Charcoal stock · {formatKg(charcoalStock.kg)}</span>
+              <span className="font-medium tabular-nums">{formatPeso(charcoalStock.value)}</span>
             </div>
             <div className="flex items-center justify-between py-1.5">
               <span className="font-medium">Assets subtotal</span>
