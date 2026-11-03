@@ -29,22 +29,28 @@ export interface GradeOption {
 export interface PurchaseFormProps {
   farmers: FarmerOption[];
   grades: GradeOption[];
-  priceByGrade: Record<string, number>; // key: grade_id or "null"
+  priceByProductGrade: Record<string, number>; // key: `${product}:${grade_id|null}`
   today: string;
   business: { name: string; address?: string; footer?: string };
   cashierName: string | null;
 }
 
+const PRODUCTS: { value: "copra" | "charcoal"; label: string }[] = [
+  { value: "copra", label: "Copra" },
+  { value: "charcoal", label: "Charcoal (Uling)" },
+];
+
 export function PurchaseForm({
   farmers,
   grades,
-  priceByGrade,
+  priceByProductGrade,
   business,
   cashierName,
 }: PurchaseFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
+  const [product, setProduct] = useState<"copra" | "charcoal">("copra");
   const [farmerId, setFarmerId] = useState(farmers[0]?.id ?? "");
   const [gradeId, setGradeId] = useState(grades[0]?.id ?? "");
   const [weighings, setWeighings] = useState<{ sacks: string; kg: string }[]>([
@@ -60,8 +66,13 @@ export function PurchaseForm({
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [savedOffline, setSavedOffline] = useState(false);
 
-  const priceKey = grades.length > 0 ? gradeId : "null";
-  const price = priceByGrade[priceKey] ?? priceByGrade["null"] ?? null;
+  // Grades apply to copra only; charcoal is ungraded.
+  const useGrades = product === "copra" && grades.length > 0;
+  const gradeKey = useGrades ? gradeId : "null";
+  const price =
+    priceByProductGrade[`${product}:${gradeKey}`] ??
+    priceByProductGrade[`${product}:null`] ??
+    null;
 
   const farmer = farmers.find((f) => f.id === farmerId) ?? null;
   const balance = farmer?.balance_centavos ?? 0;
@@ -121,11 +132,12 @@ export function PurchaseForm({
       .filter((w) => w.sacks > 0 || w.kg > 0);
     const payload: PurchasePayload = {
       p_farmer_id: farmerId,
-      p_grade_id: grades.length > 0 ? gradeId : null,
+      p_grade_id: useGrades ? gradeId : null,
       p_purchased_at: purchasedAt,
       p_sack_count: totals.sacks,
       p_gross_kg: totals.gross,
       p_weighings: weighingInputs.length > 0 ? weighingInputs : null,
+      p_product: product,
       p_tare_kg: parseFloat(tare) || 0,
       p_deduction_kg: calc.dedKg,
       p_deduction_pct: calc.dedPct,
@@ -143,6 +155,7 @@ export function PurchaseForm({
       purchasedAt,
       farmerName: farmer.name,
       barangay: farmer.barangay,
+      product: product === "charcoal" ? "Charcoal (Uling)" : "Copra",
       weighings: weighingInputs,
       sackCount: totals.sacks,
       grossKg: payload.p_gross_kg,
@@ -245,22 +258,23 @@ export function PurchaseForm({
     );
   }
 
-  if (price === null) {
-    return (
-      <Card className="border-amber-300 bg-amber-50">
-        <div className="font-semibold text-amber-800">
-          Today&apos;s buying price is not set.
-        </div>
-        <p className="mt-1 text-sm text-amber-700">
-          Purchases cannot be recorded until the owner sets today&apos;s price.
-        </p>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <Card className="space-y-3">
+        <Field label="Product">
+          <Select value={product} onChange={(e) => setProduct(e.target.value as "copra" | "charcoal")}>
+            {PRODUCTS.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </Select>
+        </Field>
+        {price === null && (
+          <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Today&apos;s buying price for{" "}
+            <strong>{product === "copra" ? "copra" : "charcoal"}</strong> is not
+            set. The owner must set it in Prices before recording this purchase.
+          </div>
+        )}
         <Field label="Farmer">
           <FarmerPicker farmers={farmers} value={farmerId} onChange={setFarmerId} />
         </Field>
@@ -270,7 +284,7 @@ export function PurchaseForm({
           </div>
         )}
 
-        {grades.length > 0 && (
+        {useGrades && (
           <Field label="Grade">
             <Select value={gradeId} onChange={(e) => setGradeId(e.target.value)}>
               {grades.map((g) => (
@@ -282,9 +296,12 @@ export function PurchaseForm({
           </Field>
         )}
 
-        <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-700">
-          Price today: <strong>{formatPeso(price)}/kg</strong>
-        </div>
+        {price !== null && (
+          <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-700">
+            {PRODUCTS.find((p) => p.value === product)?.label} price today:{" "}
+            <strong>{formatPeso(price)}/kg</strong>
+          </div>
+        )}
 
         <div>
           <div className="mb-1 flex items-center justify-between">

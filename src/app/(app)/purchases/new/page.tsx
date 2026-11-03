@@ -38,9 +38,9 @@ export default async function NewPurchasePage() {
     name: g.name,
   }));
 
-  const priceByGrade: Record<string, number> = {};
+  const priceByProductGrade: Record<string, number> = {};
   for (const p of (prices ?? []) as BuyingPrice[]) {
-    priceByGrade[p.grade_id ?? "null"] = p.price_per_kg_centavos;
+    priceByProductGrade[`${p.product}:${p.grade_id ?? "null"}`] = p.price_per_kg_centavos;
   }
 
   const business = biz as Business | null;
@@ -57,7 +57,7 @@ export default async function NewPurchasePage() {
       <PurchaseForm
         farmers={farmerOptions}
         grades={gradeOptions}
-        priceByGrade={priceByGrade}
+        priceByProductGrade={priceByProductGrade}
         today={today}
         business={businessInfo}
         cashierName={session?.profile.full_name ?? session?.email ?? null}

@@ -10,19 +10,27 @@ import { formatKg } from "@/lib/weight";
 
 export interface SaleFormProps {
   buyers: { id: string; name: string }[];
-  stockOnHandKg: number;
-  avgCostCentavos: number;
+  stockByProduct: Record<string, { qty: number; avgCost: number }>;
   today: string;
   defaultBuyerPricePesos: number;
 }
 
+const PRODUCTS: { value: "copra" | "charcoal"; label: string }[] = [
+  { value: "copra", label: "Copra" },
+  { value: "charcoal", label: "Charcoal (Uling)" },
+];
+
 export function SaleForm({
   buyers,
-  stockOnHandKg,
-  avgCostCentavos,
+  stockByProduct,
   today,
   defaultBuyerPricePesos,
 }: SaleFormProps) {
+  const [product, setProduct] = useState<"copra" | "charcoal">(
+    (stockByProduct["copra"]?.qty ?? 0) > 0 ? "copra" : "charcoal",
+  );
+  const stockOnHandKg = stockByProduct[product]?.qty ?? 0;
+  const avgCostCentavos = Math.round(stockByProduct[product]?.avgCost ?? 0);
   const [loaded, setLoaded] = useState("");
   const [book, setBook] = useState("");
   const [buyerGross, setBuyerGross] = useState("");
@@ -56,10 +64,27 @@ export function SaleForm({
   return (
     <ActionForm action={postSale} className="space-y-4">
       <Card className="space-y-3">
+        <Field label="Product">
+          <Select
+            name="product"
+            value={product}
+            onChange={(e) => setProduct(e.target.value as "copra" | "charcoal")}
+          >
+            {PRODUCTS.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </Select>
+        </Field>
         <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-700">
-          Stock on hand: <strong>{formatKg(stockOnHandKg)}</strong> · avg cost{" "}
+          {PRODUCTS.find((p) => p.value === product)?.label} on hand:{" "}
+          <strong>{formatKg(stockOnHandKg)}</strong> · avg cost{" "}
           <strong>{formatPeso(avgCostCentavos)}/kg</strong>
         </div>
+        {stockOnHandKg <= 0 && (
+          <div className="rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-800">
+            No {product} stock on hand to sell.
+          </div>
+        )}
         <Field label="Buyer / trader">
           <Select name="buyer_id" defaultValue="">
             <option value="">— select —</option>

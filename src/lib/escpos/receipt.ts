@@ -16,6 +16,7 @@ export interface ReceiptData {
   purchasedAt: string;
   farmerName: string;
   barangay?: string | null;
+  product?: string;
   weighings?: ReceiptWeighing[];
   sackCount?: number;
   grossKg: number;
@@ -88,6 +89,7 @@ export function receiptText(d: ReceiptData): string {
   out += row("Date", formatDateTime(d.purchasedAt));
   out += row("Farmer", d.farmerName);
   if (d.barangay) out += row("Barangay", d.barangay);
+  if (d.product) out += row("Product", d.product);
   out += divider();
   out += weighingsText(d);
   if (d.sackCount && d.sackCount > 0) out += row("Sacks", String(d.sackCount));
@@ -137,6 +139,7 @@ export function encodeReceipt(d: ReceiptData): Uint8Array {
   bytes.push(...text(row("Date", formatDateTime(d.purchasedAt))));
   bytes.push(...text(row("Farmer", d.farmerName)));
   if (d.barangay) bytes.push(...text(row("Barangay", d.barangay)));
+  if (d.product) bytes.push(...text(row("Product", d.product)));
   bytes.push(...text(divider()));
   bytes.push(...text(weighingsText(d)));
   if (d.sackCount && d.sackCount > 0) bytes.push(...text(row("Sacks", String(d.sackCount))));

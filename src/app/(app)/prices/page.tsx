@@ -36,6 +36,9 @@ export default async function PricesPage() {
   const buyerList = (buyerPrices ?? []) as BuyerReferencePrice[];
   const gradeName = (id: string | null) =>
     id ? gradeList.find((g) => g.id === id)?.name ?? "—" : "All / ungraded";
+  const productLabel = (pr: string) => (pr === "charcoal" ? "Charcoal (Uling)" : "Copra");
+  const todayFor = (pr: string) =>
+    priceList.find((p) => p.effective_date === today && p.product === pr);
 
   return (
     <div className="space-y-4">
@@ -49,11 +52,17 @@ export default async function PricesPage() {
           <Card>
             <h2 className="mb-3 font-semibold">Set buying price</h2>
             <ActionForm action={setBuyingPrice} className="space-y-3">
+              <Field label="Product">
+                <Select name="product" defaultValue="copra">
+                  <option value="copra">Copra</option>
+                  <option value="charcoal">Charcoal (Uling)</option>
+                </Select>
+              </Field>
               <Field label="Date">
                 <Input type="date" name="effective_date" defaultValue={today} required />
               </Field>
               {gradeList.length > 0 && (
-                <Field label="Grade">
+                <Field label="Grade" hint="Copra only; ignored for charcoal.">
                   <Select name="grade_id" defaultValue="">
                     <option value="">All / ungraded</option>
                     {gradeList.map((g) => (
@@ -100,16 +109,18 @@ export default async function PricesPage() {
         </>
       ) : (
         <Card>
-          <div className="text-sm text-gray-600">
-            Today&apos;s price:{" "}
-            <span className="font-semibold">
-              {priceList.find((p) => p.effective_date === today)
-                ? formatPeso(
-                    priceList.find((p) => p.effective_date === today)!
-                      .price_per_kg_centavos,
-                  ) + " / kg"
-                : "not set yet"}
-            </span>
+          <div className="space-y-1 text-sm text-gray-600">
+            {(["copra", "charcoal"] as const).map((pr) => {
+              const t = todayFor(pr);
+              return (
+                <div key={pr} className="flex justify-between">
+                  <span>{productLabel(pr)} today</span>
+                  <span className="font-semibold">
+                    {t ? formatPeso(t.price_per_kg_centavos) + " / kg" : "not set yet"}
+                  </span>
+                </div>
+              );
+            })}
           </div>
           <p className="mt-1 text-xs text-gray-400">
             Only the owner can change prices.
@@ -135,7 +146,7 @@ export default async function PricesPage() {
                   <div>
                     <div className="font-medium">{formatDate(p.effective_date)}</div>
                     <div className="text-xs text-gray-400">
-                      {gradeName(p.grade_id)}
+                      {productLabel(p.product)} · {gradeName(p.grade_id)}
                     </div>
                   </div>
                   <div className="text-right">

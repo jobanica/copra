@@ -14,6 +14,7 @@ export interface PurchasePayload {
   p_sack_count: number;
   p_gross_kg: number;
   p_weighings: WeighingInput[] | null;
+  p_product: string;
   p_tare_kg: number;
   p_deduction_kg: number;
   p_deduction_pct: number;

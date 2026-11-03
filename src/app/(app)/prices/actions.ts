@@ -16,8 +16,11 @@ export async function setBuyingPrice(
   }
 
   const effectiveDate = String(formData.get("effective_date") || "");
+  const productRaw = String(formData.get("product") || "copra");
+  const product = productRaw === "charcoal" ? "charcoal" : "copra";
+  // Grades apply to copra only; charcoal is ungraded.
   const gradeRaw = String(formData.get("grade_id") || "");
-  const gradeId = gradeRaw === "" ? null : gradeRaw;
+  const gradeId = product === "copra" && gradeRaw !== "" ? gradeRaw : null;
   const priceNum = Number(formData.get("price_per_kg"));
   if (!effectiveDate || !Number.isFinite(priceNum) || priceNum < 0) {
     return { error: "Enter a valid date and price." };
@@ -26,13 +29,14 @@ export async function setBuyingPrice(
   const supabase = await createClient();
   const businessId = session.profile.business_id;
 
-  // Upsert (unique on date + grade). The grade part is an expression index,
-  // so we check-then-write rather than ON CONFLICT.
+  // Upsert (unique on date + product + grade). The grade part is an expression
+  // index, so we check-then-write rather than ON CONFLICT.
   let query = supabase
     .from("buying_prices")
     .select("id")
     .eq("business_id", businessId)
-    .eq("effective_date", effectiveDate);
+    .eq("effective_date", effectiveDate)
+    .eq("product", product);
   query = gradeId === null ? query.is("grade_id", null) : query.eq("grade_id", gradeId);
   const { data: existing } = await query.maybeSingle();
 
@@ -48,6 +52,7 @@ export async function setBuyingPrice(
       effective_date: effectiveDate,
       grade_id: gradeId,
       price_per_kg_centavos: centavos,
+      product,
       set_by: session.userId,
     });
     if (error) return { error: error.message };

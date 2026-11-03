@@ -22,6 +22,7 @@ export async function postStockCount(
     p_counted_kg: counted,
     p_count_date: (formData.get("count_date") as string) || null,
     p_remarks: (formData.get("remarks") as string) || null,
+    p_product: (formData.get("product") as string) || "copra",
   });
   if (error) return { error: error.message };
   revalidatePath("/stock");

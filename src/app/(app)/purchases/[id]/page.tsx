@@ -76,6 +76,7 @@ export default async function PurchaseDetailPage({
     purchasedAt: p.purchased_at,
     farmerName: farmer?.name ?? "Farmer",
     barangay: farmer?.barangay ?? null,
+    product: p.product === "charcoal" ? "Charcoal (Uling)" : "Copra",
     weighings: receiptWeighings,
     sackCount: p.sack_count,
     grossKg: p.gross_kg,

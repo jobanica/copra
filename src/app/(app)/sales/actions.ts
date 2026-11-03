@@ -60,6 +60,7 @@ export async function postSale(
     p_other_expenses_centavos: pesosToCentavos(num(formData.get("other")) ?? 0),
     p_book_kg: num(formData.get("book_kg")),
     p_remarks: (formData.get("remarks") as string) || null,
+    p_product: (formData.get("product") as string) || "copra",
   });
 
   if (error) return { error: error.message };

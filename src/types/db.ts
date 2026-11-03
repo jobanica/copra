@@ -3,6 +3,11 @@
 // project is linked; until then this keeps the app type-safe.
 
 export type UserRole = "owner" | "cashier";
+export type ProductKind = "copra" | "charcoal";
+export const PRODUCTS: { value: ProductKind; label: string }[] = [
+  { value: "copra", label: "Copra" },
+  { value: "charcoal", label: "Charcoal (Uling)" },
+];
 export type UtangDirection = "advance" | "repayment";
 export type UtangSource =
   | "cash_advance"
@@ -50,6 +55,7 @@ export interface BuyingPrice {
   id: string;
   business_id: string;
   effective_date: string;
+  product: ProductKind;
   grade_id: string | null;
   price_per_kg_centavos: number;
   set_by: string | null;
@@ -101,6 +107,7 @@ export interface Purchase {
   id: string;
   business_id: string;
   receipt_no: number;
+  product: ProductKind;
   farmer_id: string;
   grade_id: string | null;
   purchased_at: string;
@@ -188,6 +195,7 @@ export type SaleStatus = "posted" | "voided";
 export interface InventoryState {
   business_id: string;
   qty_on_hand_kg: number;
+  product: ProductKind;
   total_value_centavos: number;
   avg_cost_centavos: number;
   updated_at: string;
@@ -205,6 +213,7 @@ export interface InventoryMovement {
   id: string;
   business_id: string;
   movement_type: InventoryMovementType;
+  product: ProductKind;
   qty_kg: number;
   unit_cost_centavos: number | null;
   total_cost_centavos: number;
@@ -231,6 +240,7 @@ export interface Sale {
   id: string;
   business_id: string;
   sale_no: number;
+  product: ProductKind;
   buyer_id: string | null;
   sale_date: string;
   plate_no: string | null;
@@ -264,6 +274,7 @@ export interface StockCount {
   id: string;
   business_id: string;
   count_date: string;
+  product: ProductKind;
   counted_kg: number;
   book_kg: number;
   variance_kg: number;
